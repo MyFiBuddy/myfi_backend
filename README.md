@@ -1,6 +1,6 @@
 # myfi_backend
 
-This project was generated using fastapi_template.
+Code for API, celery tasks, worker and scheduler, docker local setup, github actions for CI and kubernetes deployment.
 
 ## Poetry
 
