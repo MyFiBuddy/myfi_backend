@@ -1,0 +1,134 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:alpine3.18
+    hostname: myfi_backend-db
+    environment:
+      POSTGRES_PASSWORD: "myfi_backend"
+      POSTGRES_USER: "myfi_backend"
+      POSTGRES_DB: "myfi_backend"
+    volumes:
+    - myfi_backend-db-data:/var/lib/postgresql/data
+    restart: always
+    ports:
+    - 5432:5432
+    healthcheck:
+      test: pg_isready -U myfi_backend
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:6.2.13-alpine3.18
+    hostname: "myfi_backend-redis"
+    restart: always
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+
+  migrator:
+    image: myfi_backend:${MYFI_BACKEND_VERSION:-latest}
+    restart: "no"
+    command: alembic upgrade head
+    environment:
+      MYFI_BACKEND_DB_HOST: myfi_backend-db
+      MYFI_BACKEND_DB_PORT: 5432
+      MYFI_BACKEND_DB_USER: myfi_backend
+      MYFI_BACKEND_DB_PASS: myfi_backend
+      MYFI_BACKEND_DB_BASE: myfi_backend
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+      target: prod
+    image: myfi_backend:${MYFI_BACKEND_VERSION:-latest}
+    restart: always
+    #command: bash -c 'ss=1; while ((ss)); do nc -vz myfi_backend-kafka 9092; ss=$?; sleep 2; done;  echo kafka is up; /usr/local/bin/python -m myfi_backend'
+    command: /usr/local/bin/python -m myfi_backend
+    env_file:
+    - .env
+    ports:
+    - ${MYFI_BACKEND_PORT:-8000}:8000
+    labels:
+      # Enables traefik for this container.
+    - traefik.enable=true
+    - traefik.http.routers.myfi_backend.rule=Host(`${MYFI_BACKEND_TRAEFIK_HOST:-myfi_backend.localhost}`)
+    - traefik.http.routers.myfi_backend.entrypoints=http
+    - traefik.http.routers.myfi_backend.service=myfi_backend
+    - traefik.http.services.myfi_backend.loadbalancer.server.port=${MYFI_BACKEND_PORT:-8000}
+    networks:
+    - default
+    - traefik-shared
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      MYFI_BACKEND_HOST: 0.0.0.0
+      MYFI_BACKEND_DB_HOST: myfi_backend-db
+      MYFI_BACKEND_DB_PORT: 5432
+      MYFI_BACKEND_DB_USER: myfi_backend
+      MYFI_BACKEND_DB_PASS: myfi_backend
+      MYFI_BACKEND_DB_BASE: myfi_backend
+      MYFI_BACKEND_REDIS_HOST: myfi_backend-redis
+      MYFI_BACKEND_CELERY_BROKER_URL: redis://myfi_backend-redis:6379/0
+      MYFI_BACKEND_CELERY_RESULT_BACKEND: redis://myfi_backend-redis:6379/0
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+      target: prod
+    image: myfi_backend:${MYFI_BACKEND_VERSION:-latest}
+    command: celery -A myfi_backend.celery worker --loglevel=info --concurrency=4
+    volumes:
+    - myfi_backend-worker-data:/var/lib/worker/data
+    environment:
+      MYFI_BACKEND_CELERY_BROKER_URL: redis://myfi_backend-redis:6379/0
+      MYFI_BACKEND_CELERY_RESULT_BACKEND: redis://myfi_backend-redis:6379/0
+    depends_on:
+    - redis
+
+  beat:
+    build:
+      context: .
+      dockerfile: ./deploy/Dockerfile
+      target: prod
+    image: myfi_backend:${MYFI_BACKEND_VERSION:-latest}
+    command: celery -A myfi_backend.celery beat --loglevel=info
+    environment:
+      MYFI_BACKEND_CELERY_BROKER_URL: redis://myfi_backend-redis:6379/0
+      MYFI_BACKEND_CELERY_RESULT_BACKEND: redis://myfi_backend-redis:6379/0
+    depends_on:
+    - redis
+
+  flower:
+    image: mher/flower:2.0.1
+    command: celery --broker=redis://myfi_backend-redis:6379/0 flower --port=5555
+    ports:
+    - "5555:5555"
+    depends_on:
+    - worker
+    - redis
+
+volumes:
+  myfi_backend-db-data:
+    name: myfi_backend-db-data
+  myfi_backend-worker-data:
+    name: myfi_backend-worker-data
+
+networks:
+  # Network for traefik.
+  traefik-shared:
+    name: traefik-shared

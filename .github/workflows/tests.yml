@@ -1,0 +1,91 @@
+name: Testing myfi_backend
+
+on: pull_request
+
+jobs:
+  black:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.11.4"
+    - name: Install deps
+      run: |
+        pip install -U pip
+        pip install poetry==1.4.2
+        poetry install
+      env:
+        POETRY_VIRTUALENVS_CREATE: false
+    - name: Run black check
+      run: poetry run black --check .
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.11.4"
+    - name: Install deps
+      run: |
+        pip install -U pip
+        pip install poetry==1.4.2
+        poetry install
+      env:
+        POETRY_VIRTUALENVS_CREATE: false
+    - name: Run flake8 check
+      run: poetry run flake8 --count .
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.11.4"
+    - name: Install deps
+      run: |
+        pip install -U pip
+        pip install poetry==1.4.2
+        poetry install
+      env:
+        POETRY_VIRTUALENVS_CREATE: false
+    - name: Run mypy check
+      run: poetry run mypy .
+  pytest:
+    runs-on: ubuntu-latest
+    services:
+      myfi_backend-db:
+        image: postgres:13.8-bullseye
+        env:
+          POSTGRES_PASSWORD: myfi_backend
+          POSTGRES_USER: myfi_backend
+          POSTGRES_DB: myfi_backend
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+        - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.11.4"
+    - name: Install deps
+      run: |
+        pip install -U pip
+        pip install poetry==1.4.2
+        poetry install
+      env:
+        POETRY_VIRTUALENVS_CREATE: false
+    - name: Run pytest check
+      run: poetry run pytest -vv --cov="myfi_backend" .
+      env:
+        MYFI_BACKEND_HOST: "0.0.0.0"
+        MYFI_BACKEND_DB_HOST: localhost
