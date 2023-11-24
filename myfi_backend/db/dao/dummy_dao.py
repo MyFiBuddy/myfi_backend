@@ -4,11 +4,13 @@ from fastapi import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from myfi_backend.db.dao.base_dao import BaseDAO
 from myfi_backend.db.dependencies import get_db_session
 from myfi_backend.db.models.dummy_model import DummyModel
+from myfi_backend.db.models.organization_model import Organization
 
 
-class DummyDAO:
+class DummyDAO(BaseDAO[Organization]):
     """Class for accessing dummy table."""
 
     def __init__(self, session: AsyncSession = Depends(get_db_session)):

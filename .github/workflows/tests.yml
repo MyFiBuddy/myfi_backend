@@ -14,7 +14,7 @@ jobs:
     - name: Install deps
       run: |
         pip install -U pip
-        pip install poetry==1.4.2
+        pip install poetry==1.5.1
         poetry install
       env:
         POETRY_VIRTUALENVS_CREATE: false
@@ -31,7 +31,7 @@ jobs:
     - name: Install deps
       run: |
         pip install -U pip
-        pip install poetry==1.4.2
+        pip install poetry==1.5.1
         poetry install
       env:
         POETRY_VIRTUALENVS_CREATE: false
@@ -48,7 +48,7 @@ jobs:
     - name: Install deps
       run: |
         pip install -U pip
-        pip install poetry==1.4.2
+        pip install poetry==1.5.1
         poetry install
       env:
         POETRY_VIRTUALENVS_CREATE: false
@@ -80,7 +80,7 @@ jobs:
     - name: Install deps
       run: |
         pip install -U pip
-        pip install poetry==1.4.2
+        pip install poetry==1.5.1
         poetry install
       env:
         POETRY_VIRTUALENVS_CREATE: false
