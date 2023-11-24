@@ -6,11 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from myfi_backend.db.dao.base_dao import BaseDAO
 from myfi_backend.db.dependencies import get_db_session
-from myfi_backend.db.models.dummy_model import DummyModel
-from myfi_backend.db.models.organization_model import Organization
+from myfi_backend.db.models.dummy_model import Dummy
 
 
-class DummyDAO(BaseDAO[Organization]):
+class DummyDAO(BaseDAO[Dummy]):
     """Class for accessing dummy table."""
 
     def __init__(self, session: AsyncSession = Depends(get_db_session)):
@@ -22,9 +21,9 @@ class DummyDAO(BaseDAO[Organization]):
 
         :param name: name of a dummy.
         """
-        self.session.add(DummyModel(name=name))
+        self.session.add(Dummy(name=name))
 
-    async def get_all_dummies(self, limit: int, offset: int) -> List[DummyModel]:
+    async def get_all_dummies(self, limit: int, offset: int) -> List[Dummy]:
         """
         Get all dummy models with limit/offset pagination.
 
@@ -33,7 +32,7 @@ class DummyDAO(BaseDAO[Organization]):
         :return: stream of dummies.
         """
         raw_dummies = await self.session.execute(
-            select(DummyModel).limit(limit).offset(offset),
+            select(Dummy).limit(limit).offset(offset),
         )
 
         return list(raw_dummies.scalars().fetchall())
@@ -41,15 +40,15 @@ class DummyDAO(BaseDAO[Organization]):
     async def filter(
         self,
         name: Optional[str] = None,
-    ) -> List[DummyModel]:
+    ) -> List[Dummy]:
         """
         Get specific dummy model.
 
         :param name: name of dummy instance.
         :return: dummy models.
         """
-        query = select(DummyModel)
+        query = select(Dummy)
         if name:
-            query = query.where(DummyModel.name == name)
+            query = query.where(Dummy.name == name)
         rows = await self.session.execute(query)
         return list(rows.scalars().fetchall())

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 
-class DummyModelDTO(BaseModel):
+class DummyDTO(BaseModel):
     """
     DTO for dummy models.
 
@@ -15,7 +15,7 @@ class DummyModelDTO(BaseModel):
         orm_mode = True
 
 
-class DummyModelInputDTO(BaseModel):
+class DummyInputDTO(BaseModel):
     """DTO for creating new dummy model."""
 
     name: str

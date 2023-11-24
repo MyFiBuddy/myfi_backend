@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from myfi_backend.db.models.base_model import BaseModel
 
 
-class DummyModel(BaseModel):
+class Dummy(BaseModel):
     """Model for demo purpose."""
 
     __tablename__ = "dummy_model"
