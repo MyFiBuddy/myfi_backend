@@ -6,18 +6,18 @@ from fastapi.param_functions import Depends
 
 from myfi_backend.celery.tasks import dummy_task
 from myfi_backend.db.dao.dummy_dao import DummyDAO
-from myfi_backend.db.models.dummy_model import DummyModel
-from myfi_backend.web.api.dummy.schema import DummyModelDTO, DummyModelInputDTO
+from myfi_backend.db.models.dummy_model import Dummy
+from myfi_backend.web.api.dummy.schema import DummyDTO, DummyInputDTO
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[DummyModelDTO])
+@router.get("/", response_model=List[DummyDTO])
 async def get_dummy_models(
     limit: int = 10,
     offset: int = 0,
     dummy_dao: DummyDAO = Depends(),
-) -> List[DummyModel]:
+) -> List[Dummy]:
     """
     Retrieve all dummy objects from the database.
 
@@ -33,7 +33,7 @@ async def get_dummy_models(
 
 @router.put("/")
 async def create_dummy_model(
-    new_dummy_object: DummyModelInputDTO,
+    new_dummy_object: DummyInputDTO,
     dummy_dao: DummyDAO = Depends(),
 ) -> None:
     """

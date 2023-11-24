@@ -1,3 +1,4 @@
+import uuid
 from typing import Any, AsyncGenerator
 
 import pytest
@@ -13,7 +14,17 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+from myfi_backend.db.dao.adviser_dao import AdviserDAO
+from myfi_backend.db.dao.distributer_dao import DistributorDAO
+from myfi_backend.db.dao.employee_dao import EmployeeDAO
+from myfi_backend.db.dao.organization_dao import OrganizationDAO
 from myfi_backend.db.dependencies import get_db_session
+from myfi_backend.db.models import load_all_models
+from myfi_backend.db.models.adviser_model import Adviser
+from myfi_backend.db.models.base_model import BaseModel
+from myfi_backend.db.models.distributer_model import Distributor
+from myfi_backend.db.models.employee_model import Employee
+from myfi_backend.db.models.organization_model import Organization
 from myfi_backend.db.utils import create_database, drop_database
 from myfi_backend.services.redis.dependency import get_redis_pool
 from myfi_backend.settings import settings
@@ -37,16 +48,14 @@ async def _engine() -> AsyncGenerator[AsyncEngine, None]:
 
     :yield: new engine.
     """
-    from myfi_backend.db.meta import meta  # noqa: WPS433
-    from myfi_backend.db.models import load_all_models  # noqa: WPS433
-
+    target_metadata = BaseModel.metadata
     load_all_models()
 
     await create_database()
 
     engine = create_async_engine(str(settings.db_url))
     async with engine.begin() as conn:
-        await conn.run_sync(meta.create_all)
+        await conn.run_sync(target_metadata.create_all)
 
     try:
         yield engine
@@ -130,3 +139,87 @@ async def client(
     """
     async with AsyncClient(app=fastapi_app, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+async def organization(dbsession: AsyncSession) -> Organization:
+    """
+    Fixture for creating an Organization instance.
+
+    :return: Organization written to db.
+    """
+    dao = OrganizationDAO(dbsession)
+    organization = await dao.create(
+        {
+            "name": "New Organization",
+            "description": "New Description",
+        },
+    )
+    await dbsession.commit()
+    return organization
+
+
+@pytest.fixture
+async def distributor(
+    dbsession: AsyncSession,
+    organization: Organization,
+) -> Distributor:
+    """
+    Fixture for creating a Distributor instance.
+
+    :return: Distributor instance written to db.
+    """
+    dao = DistributorDAO(dbsession)
+    distributor = await dao.create(
+        {
+            "name": "Test Distributer",
+            "external_id": "Test external id",
+            "organization_id": uuid.UUID(str(organization.id)),
+        },
+    )
+    await dbsession.commit()
+    return distributor
+
+
+@pytest.fixture
+async def adviser(
+    dbsession: AsyncSession,
+    organization: Organization,
+) -> Adviser:
+    """
+    Fixture for creating a Distributor instance.
+
+    :return: Adviser instance written to db.
+    """
+    dao = AdviserDAO(dbsession)
+    adviser = await dao.create(
+        {
+            "name": "Test Adviser",
+            "external_id": "Test external id",
+            "organization_id": uuid.UUID(str(organization.id)),
+        },
+    )
+    await dbsession.commit()
+    return adviser
+
+
+@pytest.fixture
+async def employee(
+    dbsession: AsyncSession,
+    organization: Organization,
+) -> Employee:
+    """
+    Fixture for creating a Employee instance.
+
+    :return: Employee instance written to db.
+    """
+    dao = EmployeeDAO(dbsession)
+    employee = await dao.create(
+        {
+            "name": "Test employee",
+            "external_id": "Test external id",
+            "organization_id": uuid.UUID(str(organization.id)),
+        },
+    )
+    await dbsession.commit()
+    return employee

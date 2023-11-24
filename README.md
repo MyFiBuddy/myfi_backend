@@ -158,7 +158,7 @@ Migration service will migrate db to latest state.
 If you want to migrate your database, you should run following commands:
 ```bash
 # To generate migration file for db update:
-alembic revision --autogenerate --m "Add NewModel to"
+alembic revision --autogenerate --m "Add NewModel"
 
 # To run all migrations until the migration with revision_id.
 alembic upgrade "<revision_id>"
