@@ -1,5 +1,3 @@
-# in file: services/investment/investment_service.py
-
 from datetime import datetime, timedelta
 from random import choice
 from typing import List
