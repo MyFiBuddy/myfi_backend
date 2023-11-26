@@ -55,6 +55,7 @@ def get_app() -> FastAPI:
     )
 
     # Adds CORS middleware.
+    # NOTE: This is not secure for production. Remove when deploying.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],

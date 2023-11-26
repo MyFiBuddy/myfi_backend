@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ class UserDTO(BaseModel):
 
     email: Optional[str] = None
     mobile: Optional[str] = None
+    user_id: Optional[uuid.UUID] = None
 
 
 class OtpDTO(BaseModel):
