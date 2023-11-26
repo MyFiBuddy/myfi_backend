@@ -1,9 +1,10 @@
-import os
+import argparse
 import csv
+import os
+from datetime import datetime, timedelta
+
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
-import argparse
 
 
 def get_data(month):
@@ -56,20 +57,20 @@ def generate_quarters(start_year, start_quarter, end_year, end_quarter):
             start_date = datetime(year, (quarter - 1) * 3 + 1, 1)
             end_date = start_date + timedelta(days=89)
             month = (
-                start_date.strftime('%B')
-                + ' '
-                + '-'
-                + ' '
-                + end_date.strftime('%B')
-                + ' '
+                start_date.strftime("%B")
+                + " "
+                + "-"
+                + " "
+                + end_date.strftime("%B")
+                + " "
                 + str(year)
             )
-            start_date = '1' + '-' + start_date.strftime('%B') + '-' + str(year)
+            start_date = "1" + "-" + start_date.strftime("%B") + "-" + str(year)
             if quarter == 1 or quarter == 4:
-                end_date = '31' + '-' + end_date.strftime('%B') + '-' + str(year)
+                end_date = "31" + "-" + end_date.strftime("%B") + "-" + str(year)
             else:
-                end_date = '30' + '-' + end_date.strftime('%B') + '-' + str(year)
-            quarters_mapping[month] = start_date + '_' + end_date
+                end_date = "30" + "-" + end_date.strftime("%B") + "-" + str(year)
+            quarters_mapping[month] = start_date + "_" + end_date
 
     return quarters_mapping
 
@@ -89,15 +90,15 @@ def Skip_rows(rows, index, length):
     condition = True
     index = index + 1
     row = rows[index]
-    th_tag = row.find('th')
+    th_tag = row.find("th")
 
     while index < length - 1 and condition:
-        if th_tag and 'align' in th_tag.attrs and th_tag['align'] == 'left':
+        if th_tag and "align" in th_tag.attrs and th_tag["align"] == "left":
             condition = False
             break
         index += 1
         row = rows[index]
-        th_tag = row.find('th')
+        th_tag = row.find("th")
     return index
 
 
@@ -112,7 +113,7 @@ def get_folder_name(rows, index):
     Returns:
         str: Folder name.
     """
-    folder_name = rows[index].find('th').get_text(strip=True)
+    folder_name = rows[index].find("th").get_text(strip=True)
     return folder_name.replace(" ", "")
 
 
@@ -128,7 +129,7 @@ def get_pattern(rows, index):
         str: Pattern for the current row.
     """
     row = rows[index]
-    th_tag = row.find('th')
+    th_tag = row.find("th")
     return th_tag.get_text(strip=True) if th_tag else " "
 
 
@@ -145,7 +146,7 @@ def handle_open_ended(rows, index):
     """
     index = index + 1
     row = rows[index]
-    th_tag = row.find('th')
+    th_tag = row.find("th")
     return index if th_tag else index + 1
 
 
@@ -177,13 +178,16 @@ def generate_csv(rows, filename, index, length):
         int: Updated index after processing the rows.
     """
     Headers = [
-        ['AMFI Code ', 'Scheme NAV Name',
-         'Average AUM-Excluding Fund of Funds - Domestic but including Fund of \
-          Funds - Overseas',
-         'Average AUM-Fund Of Funds - Domestic'],
+        [
+            "AMFI Code ",
+            "Scheme NAV Name",
+            "Average AUM-Excluding Fund of Funds - Domestic but including Fund of \
+          Funds - Overseas",
+            "Average AUM-Fund Of Funds - Domestic",
+        ],
     ]
     folder_name = get_folder_name(rows, index)
-    filename = filename + '.' + 'csv'
+    filename = filename + "." + "csv"
     file_path = os.path.join(folder_name, filename)
     with open(file_path, "w", newline="", encoding="utf-8") as f:
         csv_writer = csv.writer(f)
@@ -246,7 +250,10 @@ if __name__ == "__main__":
 
     if args.start_year and args.start_quarter and args.end_year and args.end_quarter:
         quarters_map = generate_quarters(
-            args.start_year, args.start_quarter, args.end_year, args.end_quarter
+            args.start_year,
+            args.start_quarter,
+            args.end_year,
+            args.end_quarter,
         )
 
         for month, filename in quarters_map.items():
