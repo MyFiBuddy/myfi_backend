@@ -1,124 +1,166 @@
+import json
+import uuid
+from typing import Dict, Union
+from unittest.mock import MagicMock, patch
+
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI
+from httpx import AsyncClient
+from redis.asyncio import ConnectionPool, Redis
+from starlette import status
 
-from myfi_backend.web.api.otp import views
-from myfi_backend.web.api.otp.schema import (
-    OtpDTO,
-    SignupResponseDTO,
-    UserDTO,
-    VerifyResponseDTO,
+from myfi_backend.utils.redis import REDIS_HASH_NEW_USER, generate_redis_key
+from myfi_backend.web.api.otp.schema import OtpDTO, OtpResponseDTO, UserDTO
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"email": "john.doe@example.com", "mobile": None},
+        {"email": None, "mobile": "1234567890"},
+        # Add more UserDTO instances here as needed.
+    ],
 )
+async def test_signup_success(
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+    fake_redis_pool: ConnectionPool,
+    user_data: Dict[str, Union[str, None]],
+) -> None:
+    """
+    Tests that echo route works.
+
+    :param fastapi_app: current application.
+    :param client: client for the app.
+    :param fake_redis_pool: fake redis pool.
+    :param user_data: user data.
+    """
+    url = fastapi_app.url_path_for("signup")
+    response = await client.post(
+        url,
+        json=user_data,
+    )
+    response_ob = OtpResponseDTO.parse_obj(response.json())
+    assert response.status_code == status.HTTP_200_OK
+    async with Redis(connection_pool=fake_redis_pool) as redis:
+        assert response_ob.user_id is not None
+        assert response_ob.message == "SUCCESS."
+        redis_key = generate_redis_key(str(response_ob.user_id), REDIS_HASH_NEW_USER)
+        redis_value = await redis.get(str(redis_key))
+        assert redis_value is not None
+        otp_data = OtpDTO.parse_raw(redis_value.decode("utf-8"))
+        assert otp_data.otp is not None
+        assert otp_data.user.user_id == response_ob.user_id
+        assert otp_data.user.email == user_data["email"]
+        assert otp_data.user.mobile == user_data["mobile"]
 
 
 @pytest.mark.anyio
-async def test_signup_with_valid_user() -> None:
+async def test_signup_failure(
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+    fake_redis_pool: ConnectionPool,
+) -> None:
     """
-    Test the signup function with a valid user.
+    Tests that signup fails when both user email and mobile are empty.
 
-    This test checks if the signup function returns the expected response when given a
-    valid user. It also checks if the user's email or mobile number is added to the
-    otp_dict.
+    :param fastapi_app: current application fixture.
+    :param client: client fixture.
     """
     user_data = {
-        "email": "test@example.com",
-        "mobile": "1234567890",
+        "email": None,
+        "mobile": None,
     }
-    user = UserDTO.parse_obj(user_data)
-    expected_response = SignupResponseDTO(message="OTP sent successfully.")
+    url = fastapi_app.url_path_for("signup")
+    response = await client.post(url, json=user_data)
 
-    response = await views.signup(user)
-
-    assert response == expected_response
-    assert user.email in views.otp_dict or user.mobile in views.otp_dict
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Invalid request."
 
 
 @pytest.mark.anyio
-async def test_signup_with_invalid_user() -> None:
-    """
-    Test the signup function with an invalid user.
-
-    This test checks if the signup function raises an HTTPException when given an
-    invalid user.
-    """
-    user_data = {
-        "email": "",
-        "mobile": "",
-        "otp": 1234,
-    }
-
-    with pytest.raises(HTTPException):
-        user = UserDTO.parse_obj(user_data)
-        await views.signup(user)
-
-
-@pytest.mark.anyio
-async def test_verify_with_valid_email_otp() -> None:
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {
+            "email": "john.doe@example.com",
+        },
+        {
+            "mobile": "1234567890",
+        },
+    ],
+)
+@patch("myfi_backend.web.api.otp.views.generate_otp")
+async def test_verify_success(
+    mock_generate_otp: MagicMock,
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+    user_data: Dict[str, Union[str, None]],
+    fake_redis_pool: ConnectionPool,
+) -> None:
     """
     Test case to verify the valid OTP with an email.
 
-    It asserts that the response received is equal to the expected response.
+    :param fastapi_app: current application.
+    :param client: client for the app.
+    :param fake_redis_pool: fake redis pool.
+    :param user_data: user data.
     """
-    # Mock otp_dict
-    views.otp_dict = {"test@example.com": 1234, "1234567890": 1234}
-    otp_data = {"email": "test@example.com", "otp": 1234}
-    otp = OtpDTO.parse_obj(otp_data)
-    expected_response = VerifyResponseDTO(message="OTP verified successfully.")
+    mock_generate_otp.return_value = "123456"
+    signup_url = fastapi_app.url_path_for("signup")
+    response = await client.post(
+        signup_url,
+        json=user_data,
+    )
 
-    response = await views.verify(otp)
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["user_id"] is not None
+    assert response.json()["message"] == "SUCCESS."
 
-    assert response == expected_response
+    user_id = response.json()["user_id"]
+
+    user = UserDTO.parse_obj(user_data)
+    user.user_id = user_id
+    otp_data = OtpDTO(user=user, otp="123456")
+    verify_url = fastapi_app.url_path_for("verify")
+    response = await client.post(
+        verify_url,
+        json=otp_data.dict(),
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    response_ob = OtpResponseDTO.parse_obj(response.json())
+    assert response_ob.message == "SUCCESS."
 
 
 @pytest.mark.anyio
-async def test_verify_with_valid_mobile_otp() -> None:
+async def test_verify_failure(
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+    fake_redis_pool: ConnectionPool,
+) -> None:
     """
-    Test case to verify the valid OTP with a mobile.
+    Test case to verify the resonse for bad request.
 
-    It asserts that the response received is equal to the expected response.
-    """
-    # Mock otp_dict
-    views.otp_dict = {"test@example.com": 1234, "1234567890": 1234}
-    otp_data = {"mobile": "1234567890", "otp": 1234}
-    otp = OtpDTO.parse_obj(otp_data)
-    expected_response = VerifyResponseDTO(message="OTP verified successfully.")
-
-    response = await views.verify(otp)
-
-    assert response == expected_response
-
-
-@pytest.mark.anyio
-async def test_verify_with_invalid_email_otp() -> None:
-    """
-    Test case to verify the behavior of the 'verify' function.
-
-    Test the expected behavour when an invalid email OTP is provided.
-
-    Raises:
-        HTTPException: If the OTP verification fails.
+    :param fastapi_app: current application.
+    :param client: client for the app.
+    :param fake_redis_pool: fake redis pool.
     """
     # Mock otp_dict
-    views.otp_dict = {"test@example.com": 1234, "1234567890": 1234}
-    otp_data = {"email": "test@example.com", "otp": 3455}
+    user_dto = UserDTO(
+        email="john.doe@example.com",
+        mobile="1234567890",
+        user_id=uuid.uuid4(),
+    )
+    otp_data = OtpDTO(user=user_dto, otp="456789")
+    verify_url = fastapi_app.url_path_for("verify")
+    response = await client.post(
+        verify_url,
+        json=json.loads(
+            otp_data.json(),
+        ),  # need to convert to dict as uuid is not serializable
+    )
 
-    with pytest.raises(HTTPException):
-        otp = OtpDTO.parse_obj(otp_data)
-        await views.verify(otp)
-
-
-@pytest.mark.anyio
-async def test_verify_with_invalid_mobile_otp() -> None:
-    """Test case to verify the behavior of the 'verify' function.
-
-    Test the expected behavour when an invalid mobile OTP is provided.
-
-    Raises:
-        HTTPException: If the OTP verification fails.
-    """
-    # Mock otp_dict
-    views.otp_dict = {"test@example.com": 1234, "1234567890": 1234}
-    otp_data = {"mobile": "1234567890", "otp": 3455}
-
-    with pytest.raises(HTTPException):
-        otp = OtpDTO.parse_obj(otp_data)
-        await views.verify(otp)
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Not Found."
