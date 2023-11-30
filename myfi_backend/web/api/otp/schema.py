@@ -21,33 +21,23 @@ class OtpDTO(BaseModel):
     """Represents a one-time password (OTP) used for authentication.
 
     Attributes:
-        email (Optional[str]): The email address associated with the OTP.
-        mobile (Optional[str]): The mobile number associated with the OTP.
+        user: The user associated with the OTP.
         otp (int): The OTP value.
     """
 
-    email: Optional[str] = None
-    mobile: Optional[str] = None
-    otp: int
+    user: UserDTO
+    otp: str
+    retry_count: Optional[int] = 0
 
 
-class SignupResponseDTO(BaseModel):
-    """
-    Represents the response returned by the server after a user signs up.
-
-    Attributes:
-        message (str): A message indicating the result of the signup attempt.
-    """
-
-    message: str
-
-
-class VerifyResponseDTO(BaseModel):
+class OtpResponseDTO(BaseModel):
     """
     Represents the response returned by the OTP verification API endpoint.
 
     Attributes:
-        message (str): A message indicating the result of the verification process.
+        message: A message indicating the result of the verification process.
+        user_id: The user ID of the user who was verified.
     """
 
+    user_id: uuid.UUID
     message: str
