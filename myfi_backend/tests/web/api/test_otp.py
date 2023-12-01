@@ -11,6 +11,11 @@ from starlette import status
 
 from myfi_backend.utils.redis import REDIS_HASH_NEW_USER, generate_redis_key
 from myfi_backend.web.api.otp.schema import OtpDTO, OtpResponseDTO, UserDTO
+from myfi_backend.web.api.otp.views import (
+    verify_email_otp,
+    verify_mobile_otp,
+    verify_otp,
+)
 
 
 @pytest.mark.anyio
@@ -19,7 +24,6 @@ from myfi_backend.web.api.otp.schema import OtpDTO, OtpResponseDTO, UserDTO
     [
         {"email": "john.doe@example.com", "mobile": None},
         {"email": None, "mobile": "1234567890"},
-        # Add more UserDTO instances here as needed.
     ],
 )
 async def test_signup_success(
@@ -46,14 +50,25 @@ async def test_signup_success(
     async with Redis(connection_pool=fake_redis_pool) as redis:
         assert response_ob.user_id is not None
         assert response_ob.message == "SUCCESS."
+
         redis_key = generate_redis_key(str(response_ob.user_id), REDIS_HASH_NEW_USER)
         redis_value = await redis.get(str(redis_key))
+
         assert redis_value is not None
+
         otp_data = OtpDTO.parse_raw(redis_value.decode("utf-8"))
-        assert otp_data.otp is not None
         assert otp_data.user.user_id == response_ob.user_id
-        assert otp_data.user.email == user_data["email"]
-        assert otp_data.user.mobile == user_data["mobile"]
+
+        if user_data["email"]:
+            assert otp_data.email_otp is not None
+            assert otp_data.mobile_otp is None
+            assert otp_data.user.email == user_data["email"]
+            assert otp_data.user.mobile is None
+        elif user_data["mobile"]:
+            assert otp_data.email_otp is None
+            assert otp_data.mobile_otp is not None
+            assert otp_data.user.mobile == user_data["mobile"]
+            assert otp_data.user.email is None
 
 
 @pytest.mark.anyio
@@ -122,7 +137,12 @@ async def test_verify_success(
 
     user = UserDTO.parse_obj(user_data)
     user.user_id = user_id
-    otp_data = OtpDTO(user=user, otp="123456")
+
+    if user.email:
+        otp_data = OtpDTO(user=user, email_otp="123456")
+    elif user.mobile:
+        otp_data = OtpDTO(user=user, mobile_otp="123456")
+
     verify_url = fastapi_app.url_path_for("verify")
     response = await client.post(
         verify_url,
@@ -153,7 +173,7 @@ async def test_verify_failure(
         mobile="1234567890",
         user_id=uuid.uuid4(),
     )
-    otp_data = OtpDTO(user=user_dto, otp="456789")
+    otp_data = OtpDTO(user=user_dto, email_otp="456789")
     verify_url = fastapi_app.url_path_for("verify")
     response = await client.post(
         verify_url,
@@ -162,5 +182,160 @@ async def test_verify_failure(
         ),  # need to convert to dict as uuid is not serializable
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
-    assert response.json()["detail"] == "Not Found."
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json()["detail"] == "Invalid request."
+
+
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"email": "test1@example.com", "email_otp": 123456},
+        {"mobile": "1234567890", "mobile_otp": 654321},
+    ],
+)
+def test_verify_otp_success(user_data: Dict[str, Union[str, None]]) -> None:
+    """
+    Test case for successful OTP verification.
+
+    This test case assumes that the provided OTP matches the stored OTP.
+    """
+    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
+    user_input_otp = OtpDTO(
+        user=user,
+        email_otp=user_data.get("email_otp"),
+        mobile_otp=user_data.get("mobile_otp"),
+    )
+    stored_otp = OtpDTO(user=user, email_otp="123456", mobile_otp="654321")
+
+    result = verify_otp(user_input_otp, stored_otp)
+
+    assert result is True
+
+
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"email": "test1@example.com", "email_otp": 123456},
+        {"mobile": "1234567890", "mobile_otp": 654321},
+    ],
+)
+def test_verify_otp_failure(user_data: Dict[str, Union[str, None]]) -> None:
+    """
+    Test case for unsuccessful OTP verification.
+
+    This test case assumes that the provided OTP does not match the stored OTP.
+    """
+    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
+    user_input_otp = OtpDTO(
+        user=user,
+        email_otp=user_data.get("email_otp"),
+        mobile_otp=user_data.get("mobile_otp"),
+    )
+    stored_otp = OtpDTO(user=user, email_otp="654321", mobile_otp="123456")
+
+    result = verify_otp(user_input_otp, stored_otp)
+
+    assert result is False
+
+
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"mobile": "1234567890", "mobile_otp": 654321},
+    ],
+)
+def test_verify_mobile_otp_success(user_data: Dict[str, Union[str, None]]) -> None:
+    """
+    Test case for successful mobile OTP verification.
+
+    This test case assumes that the provided mobile OTP matches the stored mobile OTP.
+    """
+    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
+    user_input_otp = OtpDTO(
+        user=user,
+        email_otp=user_data.get("email_otp"),
+        mobile_otp=user_data.get("mobile_otp"),
+    )
+    stored_otp = OtpDTO(user=user, email_otp=None, mobile_otp="654321")
+
+    result = verify_mobile_otp(user_input_otp, stored_otp)
+
+    assert result is True
+
+
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"mobile": "1234567890", "mobile_otp": 654321},
+    ],
+)
+def test_verify_mobile_otp_failure(user_data: Dict[str, Union[str, None]]) -> None:
+    """
+    Test case for unsuccessful mobile OTP verification.
+
+    This test case assumes that the provided mobile OTP does not match the stored
+    mobile OTP.
+    """
+    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
+    user_input_otp = OtpDTO(
+        user=user,
+        email_otp=user_data.get("email_otp"),
+        mobile_otp=user_data.get("mobile_otp"),
+    )
+    stored_otp = OtpDTO(user=user, email_otp=None, mobile_otp="123456")
+
+    result = verify_mobile_otp(user_input_otp, stored_otp)
+
+    assert result is False
+
+
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"email": "test@example.com", "email_otp": 654321},
+    ],
+)
+def test_verify_email_otp_success(user_data: Dict[str, Union[str, None]]) -> None:
+    """
+    Test case for successful mobile OTP verification.
+
+    This test case assumes that the provided mobile OTP matches the stored
+    mobile OTP.
+    """
+    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
+    user_input_otp = OtpDTO(
+        user=user,
+        email_otp=user_data.get("email_otp"),
+        mobile_otp=user_data.get("mobile_otp"),
+    )
+    stored_otp = OtpDTO(user=user, email_otp="654321", mobile_otp=None)
+
+    result = verify_email_otp(user_input_otp, stored_otp)
+
+    assert result is True
+
+
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {"email": "test@example.com", "email_otp": 654321},
+    ],
+)
+def test_verify_email_otp_failure(user_data: Dict[str, Union[str, None]]) -> None:
+    """
+    Test case for unsuccessful mobile OTP verification.
+
+    This test case assumes that the provided mobile OTP does not match the stored
+    mobile OTP.
+    """
+    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
+    user_input_otp = OtpDTO(
+        user=user,
+        email_otp=user_data.get("email_otp"),
+        mobile_otp=user_data.get("mobile_otp"),
+    )
+    stored_otp = OtpDTO(user=user, email_otp="123456", mobile_otp=None)
+
+    result = verify_email_otp(user_input_otp, stored_otp)
+
+    assert result is False
