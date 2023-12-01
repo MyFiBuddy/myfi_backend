@@ -22,11 +22,14 @@ class OtpDTO(BaseModel):
 
     Attributes:
         user: The user associated with the OTP.
-        otp (int): The OTP value.
+        email_otp (int): The OTP value for email.
+        mobile_otp (int): The OTP value for mobile.
+        retry_count (int): The number of times the user has retried the OTP.
     """
 
     user: UserDTO
-    otp: str
+    email_otp: Optional[str] = None
+    mobile_otp: Optional[str] = None
     retry_count: Optional[int] = 0
 
 

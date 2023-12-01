@@ -37,7 +37,7 @@ async def signup(
     if user.email:
         # send email OTP
         otp = generate_otp()
-        user_otp = OtpDTO(user=user, otp=otp)
+        user_otp = OtpDTO(user=user, email_otp=otp)
         await set_to_redis(
             redis_pool=redis_pool,
             key=str(user.user_id),
@@ -48,7 +48,7 @@ async def signup(
     elif user.mobile:
         # send mobile OTP
         otp = generate_otp()
-        user_otp = OtpDTO(user=user, otp=otp)
+        user_otp = OtpDTO(user=user, mobile_otp=otp)
         await set_to_redis(
             redis_pool=redis_pool,
             key=str(user.user_id),
@@ -62,7 +62,7 @@ async def signup(
 
 
 @router.post("/verify/", response_model=OtpResponseDTO)
-async def verify(
+async def verify(  # noqa: WPS231
     otp: OtpDTO,
     redis_pool: ConnectionPool = Depends(get_redis_pool),
 ) -> OtpResponseDTO:
@@ -76,27 +76,74 @@ async def verify(
         invalid. returns 400 if request is invalid, returns 404 if user or OTP \
         is invalid
     """
-    if (  # noqa: WPS337
-        not otp.user.user_id
-        or not otp.otp
-        or not (otp.user.email or otp.user.mobile)  # noqa: WPS221 WPS337
-    ):
-        raise HTTPException(status_code=400, detail="Invalid request.")
-
-    value = await get_from_redis(
-        redis_pool=redis_pool,
-        key=str(otp.user.user_id),
-        hash_key=REDIS_HASH_NEW_USER,
-    )
-    if not value:
-        raise HTTPException(status_code=404, detail="Not Found.")
-
-    user_otp = OtpDTO.parse_raw(value)
-    if (  # noqa: WPS337
-        (otp.user.email and user_otp.user.email == otp.user.email)  # noqa: WPS222
-        or (otp.user.mobile and user_otp.user.mobile == otp.user.mobile)
-        and user_otp.otp == otp.otp
-    ):
-        return OtpResponseDTO(user_id=otp.user.user_id, message="SUCCESS.")
+    if otp.user.user_id:
+        try:
+            value = await get_from_redis(
+                redis_pool=redis_pool,
+                key=str(otp.user.user_id),
+                hash_key=REDIS_HASH_NEW_USER,
+            )
+            if value:
+                user_otp = OtpDTO.parse_raw(value)
+                if verify_otp(otp, user_otp):
+                    return OtpResponseDTO(user_id=otp.user.user_id, message="SUCCESS.")
+            else:
+                raise HTTPException(status_code=400, detail="Invalid request.")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid request.")
 
     raise HTTPException(status_code=404, detail="Not Found.")
+
+
+def verify_otp(
+    otp: OtpDTO,
+    user_otp: OtpDTO,
+) -> bool:
+    """
+    Verify OTP for mobile or email.
+
+    :param otp: OTP object containing email or mobile number and OTP.
+    :param user_otp: OTP object from db.
+    :returns: True if OTP verification success, False otherwise.
+    """
+    if otp.user.mobile and verify_mobile_otp(otp, user_otp):
+        return True
+    elif otp.user.email and verify_email_otp(otp, user_otp):
+        return True
+    return False
+
+
+def verify_mobile_otp(
+    otp: OtpDTO,
+    user_otp: OtpDTO,
+) -> bool:
+    """
+    Verify OTP for mobile.
+
+    :param otp: OTP object containing email or mobile number and OTP.
+    :param user_otp: OTP object from db.
+    :returns: True if OTP verification for mobile success, False otherwise.
+    """
+    if (user_otp.user.mobile == otp.user.mobile) and (
+        user_otp.mobile_otp == otp.mobile_otp
+    ):
+        return True
+    return False
+
+
+def verify_email_otp(
+    otp: OtpDTO,
+    user_otp: OtpDTO,
+) -> bool:
+    """
+    Verify OTP for email.
+
+    :param otp: OTP object containing email or mobile number and OTP.
+    :param user_otp: OTP object from db.
+    :returns: True if OTP verification for email success, False otherwise.
+    """
+    if (user_otp.user.email == otp.user.email) and (
+        user_otp.email_otp == otp.email_otp
+    ):
+        return True
+    return False

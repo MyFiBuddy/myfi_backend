@@ -78,6 +78,10 @@ ignore =
   WPS432,
   ; Found too many empty lines in `def`
   WPS473,
+  ; Found multiline conditions
+  WPS337,
+  ; Found simplifiable returning `if` condition in a function
+  WPS531,
 
 per-file-ignores =
   ; all tests
