@@ -5,7 +5,12 @@ from fastapi.param_functions import Depends
 from redis.asyncio import ConnectionPool
 
 from myfi_backend.services.redis.dependency import get_redis_pool
-from myfi_backend.utils.redis import REDIS_HASH_NEW_USER, get_from_redis, set_to_redis
+from myfi_backend.utils.redis import (
+    REDIS_HASH_NEW_USER,
+    REDIS_NEW_USER_EXPIRY_TIME,
+    get_from_redis,
+    set_to_redis,
+)
 from myfi_backend.web.api.otp.schema import OtpDTO, OtpResponseDTO, UserDTO
 
 router = APIRouter()
@@ -43,6 +48,7 @@ async def signup(
             key=str(user.user_id),
             value=user_otp.json(),
             hash_key=REDIS_HASH_NEW_USER,
+            expire=REDIS_NEW_USER_EXPIRY_TIME,
         )
         # send email with OTP
     elif user.mobile:
@@ -54,6 +60,7 @@ async def signup(
             key=str(user.user_id),
             value=user_otp.json(),
             hash_key=REDIS_HASH_NEW_USER,
+            expire=REDIS_NEW_USER_EXPIRY_TIME,
         )
         # send SMS with OTP
     else:
