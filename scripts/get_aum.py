@@ -1,22 +1,23 @@
 import argparse
 import csv
+import logging
 import os
 from datetime import datetime, timedelta
 
 import requests
 from bs4 import BeautifulSoup
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 def get_data(month):
     """
-    Fetches Average AUM data from the AMFI website for a given month.
+    Fetches mutual fund data from AMFI website for the specified month.
 
-    Parameters:
-        month (str): Month and year in the format "Month - Year"
-        (e.g., "January - March 2022").
-
-    Returns:
-        requests.Response: The response object from the website.
+    :param month : Month and year in the format "Month - Year".
+    :returns : The response object from the website.
     """
     url = "https://www.amfiindia.com/modules/AverageAUMDetails"
     data = {
@@ -26,73 +27,90 @@ def get_data(month):
         "Year_Id": "0",
         "Year_Quarter": month,
     }
+    timeout_seconds = 150
     try:
-        response = requests.post(url, data=data)
-        response.raise_for_status()  # Raise an HTTPError for bad responses
-    except requests.RequestException as e:
-        print(f"Error during request: {e}")
+        response = requests.post(url, data=data, timeout=timeout_seconds)
+        if response.status_code == 200:
+            return response
+        else:
+            logger.error(f"Request failed with code: {response.status_code} ")
+        response.raise_for_status()
+    except requests.exceptions.Timeout:
+        logger.error(f"Request timed out after : {timeout_seconds} ")
+    except requests.RequestException as error:
+        logger.error(f"Error during request : {error}")
     return response
 
 
-def generate_quarters(start_year, start_quarter, end_year, end_quarter):
+def filename_mapping(quarters_map, year, quarter):
     """
-    Generates a mapping of quarters with start and end dates based on input parameters.
+    Storing the mapping for month and filename.
 
-    Parameters:
-        start_year (int): Start year for fetching data.
-        start_quarter (int): Start quarter (1-4) for fetching data. (1->January - March)
-        end_year (int): End year for fetching data.
-        end_quarter (int): End quarter (1-4) for fetching data.
-
-    Returns:
-        dict: A mapping of quarters with start and end dates to the filename.
+    :param quarters_map : Dict to store the month and filename.
+    :param year : Year for which quarter needs to be generated.
+    :param quarter : Quarter number for that year.
     """
-    quarters_mapping = {}
+    start_date = datetime(year, (quarter - 1) * 3 + 1, 1)
+    end_date = start_date + timedelta(days=89)
+    month = " ".join([start_date.strftime("%B"), "-"])
+    month = " ".join([month, end_date.strftime("%B"), str(year)])
+    start_date = "-".join(["1", start_date.strftime("%B")])
+    start_date = "-".join([start_date, str(year)])
+    if quarter in {1, 4}:
+        end_date = "-".join(["30", end_date.strftime("%B")])
+        end_date = "-".join([end_date, str(year)])
+    else:
+        end_date = "-".join(["31", end_date.strftime("%B")])
+        end_date = "-".join([end_date, str(year)])
+    filename = "_".join([start_date, end_date])
+    quarters_map[month] = filename
 
+
+def generate_quarters(
+    start_year,
+    start_quarter,
+    end_year,
+    end_quarter,
+):
+    """
+    Generates a mapping of quarters with start and end dates to the filename.
+
+    :param start_year : Start year for fetching data.
+    :param start_quarter : Start quarter (1-4) for fetching data.
+    :param end_year : End year for fetching data.
+    :param end_quarter : End quarter (1-4) for fetching data.
+    :returns: A mapping of quarters with start and end dates to the filename.
+    """
+    quarters_map = {}
     for year in range(start_year, end_year + 1):
-        start_quarter_num = 1 if year != start_year else start_quarter
-        end_quarter_num = 4 if year != end_year else end_quarter
+        if year == start_year:
+            start_quarter_num = start_quarter
+        else:
+            start_quarter_num = 1
+        if year == end_year:
+            end_quarter_num = end_quarter
+        else:
+            end_quarter_num = 4
 
         for quarter in range(start_quarter_num, end_quarter_num + 1):
-            start_date = datetime(year, (quarter - 1) * 3 + 1, 1)
-            end_date = start_date + timedelta(days=89)
-            month = (
-                start_date.strftime("%B")
-                + " "
-                + "-"
-                + " "
-                + end_date.strftime("%B")
-                + " "
-                + str(year)
-            )
-            start_date = "1" + "-" + start_date.strftime("%B") + "-" + str(year)
-            if quarter == 1 or quarter == 4:
-                end_date = "31" + "-" + end_date.strftime("%B") + "-" + str(year)
-            else:
-                end_date = "30" + "-" + end_date.strftime("%B") + "-" + str(year)
-            quarters_mapping[month] = start_date + "_" + end_date
-
-    return quarters_mapping
+            filename_mapping(quarters_map, year, quarter)
+    return quarters_map
 
 
-def Skip_rows(rows, index, length):
+def skip_rows(rows, index):
     """
     Skips rows until a condition is met.
 
-    Parameters:
-        rows (list): List of rows containing mutual fund data.
-        index (int): Current index in the rows list.
-        length (int): Length of the rows list.
-
-    Returns:
-        int: Updated index.
+    :param rows : List of rows containing mutual fund data.
+    :param index : Current index in the rows list.
+    :returns : Updated index.
     """
     condition = True
     index = index + 1
     row = rows[index]
     th_tag = row.find("th")
 
-    while index < length - 1 and condition:
+    while index < len(rows) - 1 and condition:
         if th_tag and "align" in th_tag.attrs and th_tag["align"] == "left":
             condition = False
             break
@@ -102,31 +120,30 @@ def Skip_rows(rows, index, length):
     return index
 
 
-def get_folder_name(rows, index):
+def get_file_path(rows, index, filename):
     """
-    Gets the folder name for the CSV file.
+    Extracts the folder name from the current row.
 
-    Parameters:
-        rows (list): List of rows containing mutual fund data.
-        index (int): Current index in the rows list.
-
-    Returns:
-        str: Folder name.
+    :param rows : List of rows containing mutual fund data.
+    :param index : Current index in the rows list.
+    :param filename : Name of the file.
+    :returns : Folder name.
     """
     folder_name = rows[index].find("th").get_text(strip=True)
-    return folder_name.replace(" ", "")
+    folder_name = folder_name.replace(" ", "")
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+    filename = ".".join([filename, "csv"])
+    return os.path.join(folder_name, filename)
 
 
 def get_pattern(rows, index):
     """
-    Gets the pattern for the current row.
+    Extracts the pattern for the current row.
 
-    Parameters:
-        rows (list): List of rows containing mutual fund data.
-        index (int): Current index in the rows list.
-
-    Returns:
-        str: Pattern for the current row.
+    :param rows : List of rows containing mutual fund data.
+    :param index : Current index in the rows list.
+    :returns : Pattern for the current row.
     """
     row = rows[index]
     th_tag = row.find("th")
@@ -137,12 +154,9 @@ def handle_open_ended(rows, index):
     """
     Handles the case when the pattern is "Open Ended".
 
-    Parameters:
-        rows (list): List of rows containing mutual fund data.
-        index (int): Current index in the rows list.
-
-    Returns:
-        int: Updated index.
+    :param rows : List of rows containing mutual fund data.
+    :param index : Current index in the rows list.
+    :returns : Updated index.
     """
     index = index + 1
     row = rows[index]
@@ -152,50 +166,47 @@ def handle_open_ended(rows, index):
 
 def get_row_columns(row):
     """
-    Gets the columns for the current row.
+    Extracts the columns for the current row.
 
-    Parameters:
-        row (BeautifulSoup Tag): Current row tag.
-
-    Returns:
-        list: List of columns for the row.
+    :param row : Current row tag.
+    :returns : List of columns for the row.
     """
     cols = row.find_all(["td", "th"])
     return [col.text.strip() for col in cols]
 
 
-def generate_csv(rows, filename, index, length):
+def get_header():
     """
-    Generates CSV files with the extracted data for each mutual fund scheme.
+    This function is used for returing header.
 
-    Parameters:
-        rows (list): List of rows containing mutual fund data.
-        filename (str): Filename for the CSV file.
-        index (int): Current index in the rows list.
-        length (int): Length of the rows list.
-
-    Returns:
-        int: Updated index after processing the rows.
+    :return : returns the header for NAV
     """
-    Headers = [
+    return [
         [
             "AMFI Code ",
             "Scheme NAV Name",
-            "Average AUM-Excluding Fund of Funds - Domestic but including Fund of \
-          Funds - Overseas",
+            "Average AUM - Funds-Overseas",
             "Average AUM-Fund Of Funds - Domestic",
         ],
     ]
-    folder_name = get_folder_name(rows, index)
-    filename = filename + "." + "csv"
-    file_path = os.path.join(folder_name, filename)
-    with open(file_path, "w", newline="", encoding="utf-8") as f:
-        csv_writer = csv.writer(f)
-        csv_writer.writerows(Headers)
+
+
+def generate_csv(rows, filename, index):
+    """
+    Generates a CSV file for mutual fund data.
+
+    :param rows : List of rows containing mutual fund data.
+    :param filename : Filename for the CSV file.
+    :param index : Current index in the rows list.
+    :return : Updated index after processing the rows.
+    """
+    filename = get_file_path(rows, index, filename)
+    with open(filename, "w", newline="", encoding="utf-8") as fd:
+        csv_writer = csv.writer(fd)
+        csv_writer.writerows(get_header())
         index = index + 1
-        while index < length - 1:
+        while index < len(rows) - 1:
             pattern = get_pattern(rows, index)
-            row = rows[index]
             if pattern in {"Mutual Fund Total", "Interval Fund", "Close Ended"}:
                 break
 
@@ -203,25 +214,24 @@ def generate_csv(rows, filename, index, length):
                 index = handle_open_ended(rows, index)
                 continue
 
-            cols = get_row_columns(row)
-            csv_writer.writerow(cols)
+            # fetching the columns to add
+            csv_writer.writerow(get_row_columns(rows[index]))
 
             # changing the row to the next
             index = index + 1
-            row = rows[index]
+            # this line is to be skip row = rows[index]
 
-        index = Skip_rows(rows, index, length)
+        index = skip_rows(rows, index)
 
     return index
 
 
 def generate_data(month, filename):
     """
-    Fetches and processes data for a specific month and generates CSV files.
-    Parameters:
-        month (str): Month and year in the format "Month - Year"
-        (e.g., "January - March 2022").
-        filename (str): Filename for the CSV file.
+    Generates mutual fund data for the specified month and stores it in a CSV file.
+
+    :param month : Month and year in the format "Month - Year".
+    :param filename : Filename for the CSV file.
     """
     response = get_data(month)
     if response.ok:
@@ -229,14 +239,12 @@ def generate_data(month, filename):
         table = soup.select_one("table")
         if table:
             rows = table.find_all("tr")
-            length = len(rows)
             index = 4
             # Iterating until "Close Ended" string is not encountered.
-            while index < length - 1:
-                index = generate_csv(rows, filename, index, length)
-
+            while index < len(rows) - 1:
+                index = generate_csv(rows, filename, index)
     else:
-        print(f"Error: {response.status_code}")
+        logger.error(f"Error: {response.status_code}")
 
 
 if __name__ == "__main__":
@@ -247,7 +255,6 @@ if __name__ == "__main__":
     parser.add_argument("--end-quarter", type=int, help="End quarter (1-4)")
 
     args = parser.parse_args()
-
     if args.start_year and args.start_quarter and args.end_year and args.end_quarter:
         quarters_map = generate_quarters(
             args.start_year,
@@ -255,8 +262,7 @@ if __name__ == "__main__":
             args.end_year,
             args.end_quarter,
         )
-
         for month, filename in quarters_map.items():
             generate_data(month, filename)
     else:
-        print("Please provide valid start and end year and quarter.")
+        logger.error("Please provide valid start and end year and quarter.")
