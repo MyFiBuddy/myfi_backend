@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.param_functions import Depends
-from redis.asyncio import ConnectionPool, Redis
+from redis.asyncio import ConnectionPool
 
 from myfi_backend.services.redis.dependency import get_redis_pool
+from myfi_backend.utils.redis import REDIS_DUMMY_HASH, get_from_redis, set_to_redis
 from myfi_backend.web.api.redis.schema import RedisValueDTO
 
 router = APIRouter()
@@ -19,9 +20,16 @@ async def get_redis_value(
     :param key: redis key, to get data from.
     :param redis_pool: redis connection pool.
     :returns: information from redis.
+    :raises HTTPException: If redis key is not found.
     """
-    async with Redis(connection_pool=redis_pool) as redis:
-        redis_value = await redis.get(key)
+    if key is None:
+        return RedisValueDTO(
+            key=key,
+            value=None,
+        )
+    redis_value = await get_from_redis(redis_pool, key, REDIS_DUMMY_HASH)
+    if redis_value is None:
+        raise HTTPException(status_code=404, detail="Key not found.")
     return RedisValueDTO(
         key=key,
         value=redis_value,
@@ -38,7 +46,13 @@ async def set_redis_value(
 
     :param redis_value: new value data.
     :param redis_pool: redis connection pool.
+    :raises HTTPException: If redis value or key is None.
     """
-    if redis_value.value is not None:
-        async with Redis(connection_pool=redis_pool) as redis:
-            await redis.set(name=redis_value.key, value=redis_value.value)
+    if not redis_value.key or not redis_value.value:
+        raise HTTPException(status_code=400, detail="Key or value cannot be None.")
+    await set_to_redis(
+        redis_pool=redis_pool,
+        key=redis_value.key,
+        value=redis_value.value,
+        hash_key=REDIS_DUMMY_HASH,
+    )
