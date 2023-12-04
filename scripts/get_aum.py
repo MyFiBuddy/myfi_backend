@@ -3,8 +3,9 @@ import csv
 import logging
 import os
 from datetime import datetime, timedelta
+from typing import Dict, List
 
-import requests
+import requests  # type: ignore
 from bs4 import BeautifulSoup
 
 # Configure logging
@@ -12,12 +13,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_data(month):
+def get_data(month: str) -> requests.Response:
     """
     Fetches mutual fund data from AMFI website for the specified month.
 
-    :param month : Month and year in the format "Month - Year".
-    :returns : The response object from the website.
+    :param month: Month and year in the format "Month - Year".
+    :returns: The response object from the website.
     """
     url = "https://www.amfiindia.com/modules/AverageAUMDetails"
     data = {
@@ -42,46 +43,47 @@ def get_data(month):
     return response
 
 
-def filename_mapping(quarters_map, year, quarter):
+def filename_mapping(
+    quarters_map: Dict[str, str],
+    year: int,
+    quarter: int,
+) -> None:
     """
     Storing the mapping for month and filename.
 
-    :param quarters_map : Dict to store the month and filename.
-    :param year : Year for which quarter needs to be generated.
-    :param quarter : Quarter number for that year.
+    :param quarters_map: Dict to store the month and filename.
+    :param year: Year for which quarter needs to be generated.
+    :param quarter: Quarter number for that year.
     """
     start_date = datetime(year, (quarter - 1) * 3 + 1, 1)
     end_date = start_date + timedelta(days=89)
-    month = " ".join([start_date.strftime("%B"), "-"])
-    month = " ".join([month, end_date.strftime("%B"), str(year)])
-    start_date = "-".join(["1", start_date.strftime("%B")])
-    start_date = "-".join([start_date, str(year)])
+    start_date_str = start_date.strftime("%B")
+    end_date_str = end_date.strftime("%B")
+    month = " ".join([start_date_str, "-", end_date_str, str(year)])
+    start_date_str = "-".join(["1", start_date_str, str(year)])
     if quarter in {1, 4}:
-        end_date = "-".join(["30", end_date.strftime("%B")])
-        end_date = "-".join([end_date, str(year)])
+        end_date_str = "-".join(["30", end_date_str, str(year)])
     else:
-        end_date = "-".join(["31", end_date.strftime("%B")])
-        end_date = "-".join([end_date, str(year)])
-    filename = "_".join([start_date, end_date])
-    quarters_map[month] = filename
+        end_date_str = "-".join(["31", end_date_str, str(year)])
+    quarters_map[month] = "_".join([start_date_str, end_date_str])
 
 
 def generate_quarters(
-    start_year,
-    start_quarter,
-    end_year,
-    end_quarter,
-):
+    start_year: int,
+    start_quarter: int,
+    end_year: int,
+    end_quarter: int,
+) -> Dict[str, str]:
     """
     Generates a mapping of quarters with start and end dates to the filename.
 
-    :param start_year : Start year for fetching data.
-    :param start_quarter : Start quarter (1-4) for fetching data.
-    :param end_year : End year for fetching data.
-    :param end_quarter : End quarter (1-4) for fetching data.
+    :param start_year: Start year for fetching data.
+    :param start_quarter: Start quarter (1-4) for fetching data.
+    :param end_year: End year for fetching data.
+    :param end_quarter: End quarter (1-4) for fetching data.
     :returns: A mapping of quarters with start and end dates to the filename.
     """
-    quarters_map = {}
+    quarters_map: Dict[str, str] = {}
     for year in range(start_year, end_year + 1):
         if year == start_year:
             start_quarter_num = start_quarter
@@ -97,7 +99,7 @@ def generate_quarters(
     return quarters_map
 
 
-def skip_rows(rows, index):
+def skip_rows(rows: List[BeautifulSoup], index: int) -> int:
     """
     Skips rows until a condition is met.
 
@@ -120,7 +122,7 @@ def skip_rows(rows, index):
     return index
 
 
-def get_file_path(rows, index, filename):
+def get_file_path(rows: List[BeautifulSoup], index: int, filename: str) -> str:
     """
     Extracts the folder name from the current row.
 
@@ -129,15 +131,16 @@ def get_file_path(rows, index, filename):
     :param filename : Name of the file.
     :returns : Folder name.
     """
-    folder_name = rows[index].find("th").get_text(strip=True)
+    th_tag = rows[index].find("th")
+    folder_name = th_tag.get_text(strip=True) if th_tag is not None else ""
     folder_name = folder_name.replace(" ", "")
-    if not os.path.exists(folder_name):
+    if folder_name and not os.path.exists(folder_name):
         os.makedirs(folder_name)
     filename = ".".join([filename, "csv"])
     return os.path.join(folder_name, filename)
 
 
-def get_pattern(rows, index):
+def get_pattern(rows: List[BeautifulSoup], index: int) -> str:
     """
     Extracts the pattern for the current row.
 
@@ -150,7 +153,7 @@ def get_pattern(rows, index):
     return th_tag.get_text(strip=True) if th_tag else " "
 
 
-def handle_open_ended(rows, index):
+def handle_open_ended(rows: List[BeautifulSoup], index: int) -> int:
     """
     Handles the case when the pattern is "Open Ended".
 
@@ -164,7 +167,7 @@ def handle_open_ended(rows, index):
     return index if th_tag else index + 1
 
 
-def get_row_columns(row):
+def get_row_columns(row: BeautifulSoup) -> List[str]:
     """
     Extracts the columns for the current row.
 
@@ -175,7 +178,7 @@ def get_row_columns(row):
     return [col.text.strip() for col in cols]
 
 
-def get_header():
+def get_header() -> List[List[str]]:
     """
     This function is used for returing header.
 
@@ -191,7 +194,7 @@ def get_header():
     ]
 
 
-def generate_csv(rows, filename, index):
+def generate_csv(rows: List[BeautifulSoup], filename: str, index: int) -> int:
     """
     Generates a CSV file for mutual fund data.
 
@@ -226,7 +229,7 @@ def generate_csv(rows, filename, index):
     return index
 
 
-def generate_data(month, filename):
+def generate_data(month: str, filename: str) -> None:
     """
     Generates mutual fund data for the specified month and stores it in a CSV file.
 
