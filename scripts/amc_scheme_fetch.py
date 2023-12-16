@@ -141,7 +141,7 @@ def get_header() -> List[List[str]]:
     ]
 
 
-def get_amc(rows, index):
+def get_amc(rows, index) -> str:
     """
     Extracts the AMC name from the current row.
 
