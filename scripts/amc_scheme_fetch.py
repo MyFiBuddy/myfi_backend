@@ -141,7 +141,7 @@ def get_header() -> List[List[str]]:
     ]
 
 
-def get_amc(rows, index) -> str:
+def get_amc(rows: List[BeautifulSoup], index: int) -> str:
     """
     Extracts the AMC name from the current row.
 
@@ -167,7 +167,11 @@ def parse_amc_scheme_name(pattern: str, scheme_name: str) -> bool:
     return False
 
 
-def append_list(rows: List[BeautifulSoup], index: int, amc_name: str) -> List[str]:
+def append_list(
+    rows: List[BeautifulSoup],
+    index: int,
+    amc_name: str,
+) -> List[str]:
     """
     Extracts the columns for the current row.
 
