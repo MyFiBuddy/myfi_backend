@@ -1,7 +1,7 @@
 import uuid
-from typing import Optional
+from typing import Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 
 class UserDTO(BaseModel):
@@ -60,6 +60,19 @@ class PinDTO(BaseModel):
 
     user_id: uuid.UUID
     pin: str
+
+    @validator("user_id")
+    def validate_uuids(cls, value: uuid.UUID) -> Union[str, uuid.UUID]:  # noqa: N805
+        """
+        Validate and convert UUIDs to strings.
+
+        :param value: The UUID to validate and convert.
+
+        :return: The UUID as a string if it's valid, or the original value if it's not.
+        """
+        if value:
+            return str(value)
+        return value
 
 
 class SetPinResponseDTO(BaseModel):

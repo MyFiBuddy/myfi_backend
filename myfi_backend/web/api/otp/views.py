@@ -124,8 +124,30 @@ async def set_pin(
     :param pin: PinDTO object containing user_id and PIN.
     :param redis_pool: Redis connection pool.
     :returns: SetPinResponseDTO object containing response.
+    :raises HTTPException: If the request is invalid or the user is not found.
     """
-    return SetPinResponseDTO(user_id=pin.user_id, message="SUCCESS.")
+    try:
+        value = await get_from_redis(
+            redis_pool=redis_pool,
+            key=str(pin.user_id),
+            hash_key=REDIS_HASH_USER,
+        )
+        # check if user is already an existing user
+        if value:
+            # user is already an existing user
+            user_otp = OtpDTO.parse_raw(value)
+            user_otp.pin = pin.pin
+            await set_to_redis(
+                redis_pool=redis_pool,
+                key=str(user_otp.user.user_id),
+                value=user_otp.json(),
+                hash_key=REDIS_HASH_USER,
+            )
+            return SetPinResponseDTO(user_id=pin.user_id, message="SUCCESS.")
+
+        raise HTTPException(status_code=400, detail="Invalid request.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request.")
 
 
 @router.post("/verify/pin/", response_model=VerifyPinResponseDTO)
@@ -139,12 +161,27 @@ async def verify_pin(
     :param pin: PinDTO object containing user_id and PIN.
     :param redis_pool: Redis connection pool.
     :returns: VerifyPinResponseDTO object containing response.
+    :raises HTTPException: If the request is invalid or the pin does not match.
     """
-    return VerifyPinResponseDTO(
-        user_id=pin.user_id,
-        is_verified=True,
-        message="SUCCESS.",
-    )
+    try:
+        value = await get_from_redis(
+            redis_pool=redis_pool,
+            key=str(pin.user_id),
+            hash_key=REDIS_HASH_USER,
+        )
+        # check if user is already an existing user
+        if value:
+            # user is already an existing user
+            user_otp = OtpDTO.parse_raw(value)
+            if user_otp.pin == pin.pin:
+                return VerifyPinResponseDTO(
+                    user_id=pin.user_id,
+                    is_verified=True,
+                    message="SUCCESS.",
+                )
+        raise HTTPException(status_code=400, detail="Invalid request.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request.")
 
 
 async def signup_email(
@@ -318,6 +355,13 @@ async def verify_mobile_otp(  # noqa: WPS231
                     value=user_otp.json(),
                     hash_key=REDIS_HASH_USER,
                 )
+                # also add the user_id as key as OTP succeeded
+                await set_to_redis(
+                    redis_pool=redis_pool,
+                    key=str(otp.user.user_id),
+                    value=user_otp.json(),
+                    hash_key=REDIS_HASH_USER,
+                )
             return True, is_existing_user
 
     return False, is_existing_user
@@ -356,7 +400,7 @@ async def verify_email_otp(  # noqa: WPS231
             if value:
                 # user is a new user
                 user_otp = OtpDTO.parse_raw(value)
-                is_existing_user = True
+                is_existing_user = False
             else:
                 # user not found
                 HTTPException(status_code=400, detail="Invalid request.")
@@ -377,6 +421,13 @@ async def verify_email_otp(  # noqa: WPS231
                 await set_to_redis(
                     redis_pool=redis_pool,
                     key=otp.user.email,
+                    value=user_otp.json(),
+                    hash_key=REDIS_HASH_USER,
+                )
+                # also add the user_id as key as OTP succeeded
+                await set_to_redis(
+                    redis_pool=redis_pool,
+                    key=str(otp.user.user_id),
                     value=user_otp.json(),
                     hash_key=REDIS_HASH_USER,
                 )
