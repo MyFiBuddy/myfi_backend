@@ -28,6 +28,7 @@ from myfi_backend.db.models.organization_model import Organization
 from myfi_backend.db.utils import create_database, drop_database
 from myfi_backend.services.redis.dependency import get_redis_pool
 from myfi_backend.settings import settings
+from myfi_backend.web.api.otp.schema import UserDTO
 from myfi_backend.web.application import get_app
 
 
@@ -223,3 +224,23 @@ async def employee(
     )
     await dbsession.commit()
     return employee
+
+
+@pytest.fixture
+def user_with_email() -> UserDTO:
+    """
+    Fixture for creating a user with email.
+
+    :return: UserDTO instance.
+    """
+    return UserDTO(email="john.doe@example.com")
+
+
+@pytest.fixture
+def user_with_mobile() -> UserDTO:
+    """
+    Fixture for creating a user with mobile.
+
+    :return: UserDTO instance.
+    """
+    return UserDTO(mobile="+919876543210")

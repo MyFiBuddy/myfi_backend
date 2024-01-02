@@ -1,5 +1,3 @@
-import json
-import uuid
 from typing import Dict, Union
 from unittest.mock import MagicMock, patch
 
@@ -10,11 +8,13 @@ from redis.asyncio import ConnectionPool, Redis
 from starlette import status
 
 from myfi_backend.utils.redis import REDIS_HASH_NEW_USER, generate_redis_key
-from myfi_backend.web.api.otp.schema import OtpDTO, OtpResponseDTO, UserDTO
-from myfi_backend.web.api.otp.views import (
-    verify_email_otp,
-    verify_mobile_otp,
-    verify_otp,
+from myfi_backend.web.api.otp.schema import (
+    OtpDTO,
+    OtpResponseDTO,
+    PinDTO,
+    SetPinResponseDTO,
+    UserDTO,
+    VerifyPinResponseDTO,
 )
 
 
@@ -26,7 +26,9 @@ from myfi_backend.web.api.otp.views import (
         {"email": None, "mobile": "1234567890"},
     ],
 )
+@patch("myfi_backend.web.api.otp.views.generate_otp")
 async def test_signup_success(
+    mock_generate_otp: MagicMock,
     fastapi_app: FastAPI,
     client: AsyncClient,
     fake_redis_pool: ConnectionPool,
@@ -40,6 +42,7 @@ async def test_signup_success(
     :param fake_redis_pool: fake redis pool.
     :param user_data: user data.
     """
+    mock_generate_otp.return_value = "123456"
     url = fastapi_app.url_path_for("signup")
     response = await client.post(
         url,
@@ -49,9 +52,13 @@ async def test_signup_success(
     assert response.status_code == status.HTTP_200_OK
     async with Redis(connection_pool=fake_redis_pool) as redis:
         assert response_ob.user_id is not None
+        assert response_ob.is_existing_user is False
         assert response_ob.message == "SUCCESS."
 
-        redis_key = generate_redis_key(str(response_ob.user_id), REDIS_HASH_NEW_USER)
+        if user_data["email"]:
+            redis_key = generate_redis_key(user_data["email"], REDIS_HASH_NEW_USER)
+        elif user_data["mobile"]:
+            redis_key = generate_redis_key(user_data["mobile"], REDIS_HASH_NEW_USER)
         redis_value = await redis.get(str(redis_key))
 
         assert redis_value is not None
@@ -60,15 +67,80 @@ async def test_signup_success(
         assert otp_data.user.user_id == response_ob.user_id
 
         if user_data["email"]:
-            assert otp_data.email_otp is not None
+            assert otp_data.email_otp == "123456"
             assert otp_data.mobile_otp is None
             assert otp_data.user.email == user_data["email"]
             assert otp_data.user.mobile is None
         elif user_data["mobile"]:
             assert otp_data.email_otp is None
-            assert otp_data.mobile_otp is not None
+            assert otp_data.mobile_otp == "123456"
             assert otp_data.user.mobile == user_data["mobile"]
             assert otp_data.user.email is None
+
+
+@pytest.mark.anyio
+@patch("myfi_backend.web.api.otp.views.generate_otp")
+async def test_signup_existing_user(
+    mock_generate_otp: MagicMock,
+    user_with_email: UserDTO,
+    user_with_mobile: UserDTO,
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+) -> None:
+    """
+    Test case to verify the signup process for an existing user.
+
+    param user_with_email: User data with email.
+    param user_with_mobile: User data with mobile.
+    param fastapi_app: current application.
+    param client: client for the app.
+    """
+    mock_generate_otp.return_value = "123456"
+    user_ids = []
+    user_data_list = [user_with_email, user_with_mobile]
+
+    # signup and verify new users
+    for user_data in user_data_list:
+        signup_url = fastapi_app.url_path_for("signup")
+        response = await client.post(
+            signup_url,
+            json=user_data.dict(),
+        )
+        assert response
+        response_ob = OtpResponseDTO.parse_obj(response.json())
+        assert response.status_code == status.HTTP_200_OK
+        assert response_ob.user_id is not None
+        assert response_ob.is_existing_user is False
+        assert response_ob.message == "SUCCESS."
+        user_ids.append(response_ob.user_id)
+
+        verify_url = fastapi_app.url_path_for("verify_otp")
+        user_data.user_id = response.json()["user_id"]
+        if user_data.email:
+            otp_data = OtpDTO(user=user_data, email_otp="123456")
+        elif user_data.mobile:
+            otp_data = OtpDTO(user=user_data, mobile_otp="123456")
+        response = await client.post(
+            verify_url,
+            json=otp_data.dict(),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_ob = OtpResponseDTO.parse_obj(response.json())
+        assert response_ob.message == "SUCCESS."
+
+    # signup existing users
+    for user_data1 in user_data_list:
+        signup_url = fastapi_app.url_path_for("signup")
+        response = await client.post(
+            signup_url,
+            json=user_data1.dict(),
+        )
+        response_ob = OtpResponseDTO.parse_obj(response.json())
+        assert response.status_code == status.HTTP_200_OK
+        assert response_ob.user_id is not None
+        assert response_ob.is_existing_user is True
+        assert response_ob.message == "SUCCESS."
+        assert response_ob.user_id in user_ids
 
 
 @pytest.mark.anyio
@@ -143,7 +215,7 @@ async def test_verify_success(
     elif user.mobile:
         otp_data = OtpDTO(user=user, mobile_otp="123456")
 
-    verify_url = fastapi_app.url_path_for("verify")
+    verify_url = fastapi_app.url_path_for("verify_otp")
     response = await client.post(
         verify_url,
         json=otp_data.dict(),
@@ -155,187 +227,138 @@ async def test_verify_success(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    "user_data",
+    [
+        {
+            "email": "john.doe@example.com",
+        },
+        {
+            "mobile": "1234567890",
+        },
+    ],
+)
+@patch("myfi_backend.web.api.otp.views.generate_otp")
 async def test_verify_failure(
+    mock_generate_otp: MagicMock,
     fastapi_app: FastAPI,
     client: AsyncClient,
+    user_data: Dict[str, Union[str, None]],
     fake_redis_pool: ConnectionPool,
 ) -> None:
     """
     Test case to verify the resonse for bad request.
 
+    :mock_generate_otp: mock generate otp.
     :param fastapi_app: current application.
     :param client: client for the app.
+    :param user_data: user data.
     :param fake_redis_pool: fake redis pool.
     """
-    # Mock otp_dict
-    user_dto = UserDTO(
-        email="john.doe@example.com",
-        mobile="1234567890",
-        user_id=uuid.uuid4(),
+    mock_generate_otp.return_value = "123456"
+    signup_url = fastapi_app.url_path_for("signup")
+    response = await client.post(
+        signup_url,
+        json=user_data,
     )
-    otp_data = OtpDTO(user=user_dto, email_otp="456789")
-    verify_url = fastapi_app.url_path_for("verify")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["user_id"] is not None
+    assert response.json()["message"] == "SUCCESS."
+
+    user_id = response.json()["user_id"]
+
+    user = UserDTO.parse_obj(user_data)
+    user.user_id = user_id
+
+    if user.email:
+        otp_data = OtpDTO(user=user, email_otp="111111")
+    elif user.mobile:
+        otp_data = OtpDTO(user=user, mobile_otp="111111")
+
+    verify_url = fastapi_app.url_path_for("verify_otp")
     response = await client.post(
         verify_url,
-        json=json.loads(
-            otp_data.json(),
-        ),  # need to convert to dict as uuid is not serializable
+        json=otp_data.dict(),
     )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.json()["detail"] == "Invalid request."
 
 
-@pytest.mark.parametrize(
-    "user_data",
-    [
-        {"email": "test1@example.com", "email_otp": 123456},
-        {"mobile": "1234567890", "mobile_otp": 654321},
-    ],
-)
-def test_verify_otp_success(user_data: Dict[str, Union[str, None]]) -> None:
+@pytest.mark.anyio
+@patch("myfi_backend.web.api.otp.views.generate_otp")
+async def test_set_pin(
+    mock_generate_otp: MagicMock,
+    user_with_email: UserDTO,
+    user_with_mobile: UserDTO,
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+) -> None:
     """
-    Test case for successful OTP verification.
+    Test case to verify the signup process for an existing user.
 
-    This test case assumes that the provided OTP matches the stored OTP.
+    param user_with_email: User data with email.
+    param user_with_mobile: User data with mobile.
+    param fastapi_app: current application.
+    param client: client for the app.
     """
-    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
-    user_input_otp = OtpDTO(
-        user=user,
-        email_otp=user_data.get("email_otp"),
-        mobile_otp=user_data.get("mobile_otp"),
-    )
-    stored_otp = OtpDTO(user=user, email_otp="123456", mobile_otp="654321")
+    mock_generate_otp.return_value = "123456"
+    user_ids = []
+    user_data_list = [user_with_email, user_with_mobile]
 
-    result = verify_otp(user_input_otp, stored_otp)
+    # signup, verify, set and verify pin for new users
+    for user_data in user_data_list:
+        signup_url = fastapi_app.url_path_for("signup")
+        response = await client.post(
+            signup_url,
+            json=user_data.dict(),
+        )
+        # signup
+        assert response
+        user_id = response.json()["user_id"]
+        response_ob = OtpResponseDTO.parse_obj(response.json())
+        assert response.status_code == status.HTTP_200_OK
+        assert response_ob.user_id is not None
+        assert response_ob.is_existing_user is False
+        assert response_ob.message == "SUCCESS."
+        user_ids.append(response_ob.user_id)
 
-    assert result is True
+        # verify otp
+        verify_url = fastapi_app.url_path_for("verify_otp")
+        user_data.user_id = user_id
+        assert user_data.user_id
+        if user_data.email:
+            otp_data = OtpDTO(user=user_data, email_otp="123456")
+        elif user_data.mobile:
+            otp_data = OtpDTO(user=user_data, mobile_otp="123456")
+        response = await client.post(
+            verify_url,
+            json=otp_data.dict(),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_ob = OtpResponseDTO.parse_obj(response.json())
+        assert response_ob.message == "SUCCESS."
+        assert response_ob.user_id is not None
 
+        # set pin
+        set_pin_url = fastapi_app.url_path_for("set_pin")
+        pin_data = PinDTO(user_id=user_id, pin="1234")
+        response = await client.post(
+            set_pin_url,
+            json=pin_data.dict(),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        set_pin_response_ob = SetPinResponseDTO.parse_obj(response.json())
+        assert set_pin_response_ob.message == "SUCCESS."
 
-@pytest.mark.parametrize(
-    "user_data",
-    [
-        {"email": "test1@example.com", "email_otp": 123456},
-        {"mobile": "1234567890", "mobile_otp": 654321},
-    ],
-)
-def test_verify_otp_failure(user_data: Dict[str, Union[str, None]]) -> None:
-    """
-    Test case for unsuccessful OTP verification.
-
-    This test case assumes that the provided OTP does not match the stored OTP.
-    """
-    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
-    user_input_otp = OtpDTO(
-        user=user,
-        email_otp=user_data.get("email_otp"),
-        mobile_otp=user_data.get("mobile_otp"),
-    )
-    stored_otp = OtpDTO(user=user, email_otp="654321", mobile_otp="123456")
-
-    result = verify_otp(user_input_otp, stored_otp)
-
-    assert result is False
-
-
-@pytest.mark.parametrize(
-    "user_data",
-    [
-        {"mobile": "1234567890", "mobile_otp": 654321},
-    ],
-)
-def test_verify_mobile_otp_success(user_data: Dict[str, Union[str, None]]) -> None:
-    """
-    Test case for successful mobile OTP verification.
-
-    This test case assumes that the provided mobile OTP matches the stored mobile OTP.
-    """
-    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
-    user_input_otp = OtpDTO(
-        user=user,
-        email_otp=user_data.get("email_otp"),
-        mobile_otp=user_data.get("mobile_otp"),
-    )
-    stored_otp = OtpDTO(user=user, email_otp=None, mobile_otp="654321")
-
-    result = verify_mobile_otp(user_input_otp, stored_otp)
-
-    assert result is True
-
-
-@pytest.mark.parametrize(
-    "user_data",
-    [
-        {"mobile": "1234567890", "mobile_otp": 654321},
-    ],
-)
-def test_verify_mobile_otp_failure(user_data: Dict[str, Union[str, None]]) -> None:
-    """
-    Test case for unsuccessful mobile OTP verification.
-
-    This test case assumes that the provided mobile OTP does not match the stored
-    mobile OTP.
-    """
-    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
-    user_input_otp = OtpDTO(
-        user=user,
-        email_otp=user_data.get("email_otp"),
-        mobile_otp=user_data.get("mobile_otp"),
-    )
-    stored_otp = OtpDTO(user=user, email_otp=None, mobile_otp="123456")
-
-    result = verify_mobile_otp(user_input_otp, stored_otp)
-
-    assert result is False
-
-
-@pytest.mark.parametrize(
-    "user_data",
-    [
-        {"email": "test@example.com", "email_otp": 654321},
-    ],
-)
-def test_verify_email_otp_success(user_data: Dict[str, Union[str, None]]) -> None:
-    """
-    Test case for successful mobile OTP verification.
-
-    This test case assumes that the provided mobile OTP matches the stored
-    mobile OTP.
-    """
-    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
-    user_input_otp = OtpDTO(
-        user=user,
-        email_otp=user_data.get("email_otp"),
-        mobile_otp=user_data.get("mobile_otp"),
-    )
-    stored_otp = OtpDTO(user=user, email_otp="654321", mobile_otp=None)
-
-    result = verify_email_otp(user_input_otp, stored_otp)
-
-    assert result is True
-
-
-@pytest.mark.parametrize(
-    "user_data",
-    [
-        {"email": "test@example.com", "email_otp": 654321},
-    ],
-)
-def test_verify_email_otp_failure(user_data: Dict[str, Union[str, None]]) -> None:
-    """
-    Test case for unsuccessful mobile OTP verification.
-
-    This test case assumes that the provided mobile OTP does not match the stored
-    mobile OTP.
-    """
-    user = UserDTO(email=user_data.get("email"), mobile=user_data.get("mobile"))
-    user_input_otp = OtpDTO(
-        user=user,
-        email_otp=user_data.get("email_otp"),
-        mobile_otp=user_data.get("mobile_otp"),
-    )
-    stored_otp = OtpDTO(user=user, email_otp="123456", mobile_otp=None)
-
-    result = verify_email_otp(user_input_otp, stored_otp)
-
-    assert result is False
+        # verify pin
+        verify_pin_url = fastapi_app.url_path_for("verify_pin")
+        pin_data = PinDTO(user_id=user_id, pin="1234")
+        response = await client.post(
+            verify_pin_url,
+            json=pin_data.dict(),
+        )
+        assert response.status_code == status.HTTP_200_OK
+        verify_pin_response_ob = VerifyPinResponseDTO.parse_obj(response.json())
+        assert verify_pin_response_ob.message == "SUCCESS."

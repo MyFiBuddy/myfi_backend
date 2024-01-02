@@ -4,6 +4,9 @@ Code for API, celery tasks, worker and scheduler, docker local setup, github act
 
 ## Poetry
 
+# Prerequisites
+Install python3.11.6 and poetry(python dependency manager).
+
 This project uses poetry. It's a modern dependency management
 tool.
 
