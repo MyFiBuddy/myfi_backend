@@ -1,5 +1,6 @@
 import uuid
 from typing import Any, AsyncGenerator
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fakeredis import FakeServer
@@ -28,7 +29,7 @@ from myfi_backend.db.models.organization_model import Organization
 from myfi_backend.db.utils import create_database, drop_database
 from myfi_backend.services.redis.dependency import get_redis_pool
 from myfi_backend.settings import settings
-from myfi_backend.web.api.otp.schema import UserDTO
+from myfi_backend.web.api.otp.schema import OtpDTO, OtpResponseDTO, UserDTO
 from myfi_backend.web.application import get_app
 
 
@@ -229,7 +230,7 @@ async def employee(
 @pytest.fixture
 def user_with_email() -> UserDTO:
     """
-    Fixture for creating a user with email.
+    Fixture for creating a UserDTO with email.
 
     :return: UserDTO instance.
     """
@@ -239,8 +240,49 @@ def user_with_email() -> UserDTO:
 @pytest.fixture
 def user_with_mobile() -> UserDTO:
     """
-    Fixture for creating a user with mobile.
+    Fixture for creating a UserDTO with mobile.
 
     :return: UserDTO instance.
     """
     return UserDTO(mobile="+919876543210")
+
+
+@pytest.fixture
+@patch("myfi_backend.web.api.otp.views.generate_otp")
+async def create_user(
+    mock_generate_otp: MagicMock,
+    user_with_mobile: UserDTO,
+    fastapi_app: FastAPI,
+    client: AsyncClient,
+) -> uuid.UUID:
+    """
+    Fixture to create a user in db and return user_id.
+
+    :param user_with_mobile: User data with mobile.
+    :param fastapi_app: current application.
+    :param client: client for the app.
+    :return: user_id of newly created user.
+
+    """
+    mock_generate_otp.return_value = "123456"
+
+    # signup, verify, set and verify pin for new users
+    signup_url = fastapi_app.url_path_for("signup")
+    response = await client.post(
+        signup_url,
+        json=user_with_mobile.dict(),
+    )
+    # signup
+    user_id = response.json()["user_id"]
+    response_ob = OtpResponseDTO.parse_obj(response.json())
+
+    # verify otp
+    verify_url = fastapi_app.url_path_for("verify_otp")
+    user_with_mobile.user_id = user_id
+    otp_data = OtpDTO(user=user_with_mobile, mobile_otp="123456")
+    response = await client.post(
+        verify_url,
+        json=otp_data.dict(),
+    )
+    response_ob = OtpResponseDTO.parse_obj(response.json())
+    return response_ob.user_id
