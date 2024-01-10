@@ -46,7 +46,7 @@ class BaseDAO(Generic[T]):
         instance = result.scalars().first()
         return instance if instance else None
 
-    async def create(self, kwargs: Mapping[str, Union[str, UUID]]) -> T:
+    async def create(self, kwargs: Mapping[str, Union[str, UUID, float]]) -> T:
         """
         Create a new model instance.
 
