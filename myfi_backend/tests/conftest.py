@@ -16,15 +16,19 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from myfi_backend.db.dao.adviser_dao import AdviserDAO
+from myfi_backend.db.dao.amc_dao import AmcDAO
 from myfi_backend.db.dao.distributer_dao import DistributorDAO
 from myfi_backend.db.dao.employee_dao import EmployeeDAO
+from myfi_backend.db.dao.mutual_fund_scheme_dao import MutualFundSchemeDAO
 from myfi_backend.db.dao.organization_dao import OrganizationDAO
 from myfi_backend.db.dependencies import get_db_session
 from myfi_backend.db.models import load_all_models
 from myfi_backend.db.models.adviser_model import Adviser
+from myfi_backend.db.models.amc_model import AMC
 from myfi_backend.db.models.base_model import BaseModel
 from myfi_backend.db.models.distributer_model import Distributor
 from myfi_backend.db.models.employee_model import Employee
+from myfi_backend.db.models.mutual_fund_scheme_model import MutualFundScheme
 from myfi_backend.db.models.organization_model import Organization
 from myfi_backend.db.utils import create_database, drop_database
 from myfi_backend.services.redis.dependency import get_redis_pool
@@ -80,7 +84,7 @@ async def dbsession(
     :yields: async session.
     """
     connection = await _engine.connect()
-    trans = await connection.begin()
+    await connection.begin()
 
     session_maker = async_sessionmaker(
         connection,
@@ -92,7 +96,7 @@ async def dbsession(
         yield session
     finally:
         await session.close()
-        await trans.rollback()
+        # await trans.rollback()
         await connection.close()
 
 
@@ -286,3 +290,59 @@ async def create_user(
     )
     response_ob = OtpResponseDTO.parse_obj(response.json())
     return response_ob.user_id
+
+
+@pytest.fixture
+async def amc(dbsession: AsyncSession) -> AMC:
+    """
+    Fixture for creating an AMC.
+
+    :return: AMC instance written to db.
+
+    """
+    amc_dao = AmcDAO(dbsession)
+    amc = await amc_dao.create({"name": "Test AMC"})
+    await dbsession.commit()
+    return amc
+
+
+@pytest.fixture
+async def mutualfundscheme(dbsession: AsyncSession, amc: AMC) -> MutualFundScheme:
+    """
+    Fixture for creating a MutualFundScheme.
+
+    :return: AMC instance written to db.
+    """
+    mutualfundscheme_dao = MutualFundSchemeDAO(dbsession)
+    mutualfundscheme = await mutualfundscheme_dao.create(
+        {
+            "name": "Test Scheme",
+            "amc_id": uuid.UUID(str(amc.id)),
+            "scheme_plan": "Test Plan",
+            "scheme_type": "Test Type",
+            "scheme_category": "Test Category",
+            "nav": 10.0,
+            "isin": "Test ISIN 2",
+            "cagr": 5.0,
+            "risk_level": "Test Risk Level",
+            "aum": 1000000.0,
+            "ter": 1.0,
+            "rating": 5,
+            "benchmark_index": "Test Benchmark Index",
+            "min_investment_sip": 500.0,
+            "min_investment_one_time": 5000.0,
+            "exit_load": "Test Exit Load",
+            "fund_manager": "Test Fund Manager",
+            "return_since_inception": 10.0,
+            "return_last_year": 5.0,
+            "return_last3_years": 15.0,
+            "return_last5_years": 25.0,
+            "standard_deviation": 0.05,
+            "sharpe_ratio": 1.0,
+            "sortino_ratio": 1.0,
+            "alpha": 0.1,
+            "beta": 1.0,
+        },
+    )
+    await dbsession.commit()
+    return mutualfundscheme
