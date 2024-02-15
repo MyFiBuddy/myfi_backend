@@ -1,5 +1,6 @@
+import random
 import uuid
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, List, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -21,6 +22,7 @@ from myfi_backend.db.dao.distributer_dao import DistributorDAO
 from myfi_backend.db.dao.employee_dao import EmployeeDAO
 from myfi_backend.db.dao.mutual_fund_scheme_dao import MutualFundSchemeDAO
 from myfi_backend.db.dao.organization_dao import OrganizationDAO
+from myfi_backend.db.dao.portfolio_dao import PortfolioDAO, PortfolioMutualFundDAO
 from myfi_backend.db.dependencies import get_db_session
 from myfi_backend.db.models import load_all_models
 from myfi_backend.db.models.adviser_model import Adviser
@@ -30,6 +32,7 @@ from myfi_backend.db.models.distributer_model import Distributor
 from myfi_backend.db.models.employee_model import Employee
 from myfi_backend.db.models.mutual_fund_scheme_model import MutualFundScheme
 from myfi_backend.db.models.organization_model import Organization
+from myfi_backend.db.models.portfolio_model import Portfolio, PortfolioMutualFund
 from myfi_backend.db.utils import create_database, drop_database
 from myfi_backend.services.redis.dependency import get_redis_pool
 from myfi_backend.settings import settings
@@ -301,7 +304,17 @@ async def amc(dbsession: AsyncSession) -> AMC:
 
     """
     amc_dao = AmcDAO(dbsession)
-    amc = await amc_dao.create({"name": "Test AMC"})
+    amc = await amc_dao.create(
+        {
+            "name": "Test AMC",
+            "code": "NEWAMC",
+            "address": "New AMC Address",
+            "email": "newamc@email.com",
+            "phone": "1234567890",
+            "website": "https://newamc.com",
+            "fund_name": "New AMC Fund",
+        },
+    )
     await dbsession.commit()
     return amc
 
@@ -311,10 +324,10 @@ async def mutualfundscheme(dbsession: AsyncSession, amc: AMC) -> MutualFundSchem
     """
     Fixture for creating a MutualFundScheme.
 
-    :return: AMC instance written to db.
+    :return: MutualFundScheme instance written to db.
     """
     mutualfundscheme_dao = MutualFundSchemeDAO(dbsession)
-    mutualfundscheme = await mutualfundscheme_dao.create(
+    mutualfundscheme_instance = await mutualfundscheme_dao.create(
         {
             "name": "Test Scheme",
             "amc_id": uuid.UUID(str(amc.id)),
@@ -345,4 +358,176 @@ async def mutualfundscheme(dbsession: AsyncSession, amc: AMC) -> MutualFundSchem
         },
     )
     await dbsession.commit()
-    return mutualfundscheme
+    return mutualfundscheme_instance
+
+
+@pytest.fixture
+async def portfolio(dbsession: AsyncSession, adviser: Adviser) -> Portfolio:
+    """
+    Pytest fixture for creating a PortfolioMutualFund instance.
+
+    :return: Portfolio instance written to db.
+    """
+    portfolio_dao = PortfolioDAO(dbsession)
+    portfolio = await portfolio_dao.create(
+        {
+            "name": "Test Portfolio",
+            "description": "This is a test portfolio",
+            "risk_level": "Low",
+            "equity_proportion": 40,
+            "debt_proportion": 30,
+            "hybrid_proportion": 20,
+            "gold_proportion": 10,
+            "adviser_id": adviser.id,  # Use the adviser fixture to get the adviser id
+        },
+    )
+    await dbsession.commit()
+    return portfolio
+
+
+@pytest.fixture
+async def portfolio_mutualfundscheme(
+    dbsession: AsyncSession,
+    portfolio: Portfolio,
+    mutualfundscheme: MutualFundScheme,
+) -> PortfolioMutualFund:
+    """
+    Pytest fixture for creating a PortfolioMutualFund instance.
+
+    It uses the Portfolio and MutualFundScheme fixtures to get the portfolio and mutual
+    fund scheme instances.
+    It uses the PortfolioMutualFundDAO to create the PortfolioMutualFund instance.
+
+    :return: PortfolioMutualFund instance written to db.
+    """
+    portfolio_mutualfundscheme_dao = PortfolioMutualFundDAO(dbsession)
+    portfolio_mutualfundscheme = await portfolio_mutualfundscheme_dao.create(
+        {
+            "portfolio_id": portfolio.id,
+            "mutualfundscheme_id": mutualfundscheme.id,
+            "proportion": 100,
+        },
+    )
+    await dbsession.commit()
+    return portfolio_mutualfundscheme
+
+
+@pytest.fixture
+async def mutualfundscheme_factory(
+    dbsession: AsyncSession,
+    amc: AMC,
+) -> Callable[[], Awaitable[MutualFundScheme]]:
+    """
+    Pytest fixture for creating a MutualFundScheme instance.
+
+    It returns a function that creates a new MutualFundScheme instance.
+
+    :return: Function that creates a MutualFundScheme instance.
+    """
+
+    async def _mutualfundscheme_factory() -> MutualFundScheme:
+        mutualfundscheme_dao = MutualFundSchemeDAO(dbsession)
+        mutualfundscheme_instance = await mutualfundscheme_dao.create(
+            {
+                "name": f"Test Scheme {str(uuid.uuid4())[:12]}",  # noqa: WPS237
+                "amc_id": uuid.UUID(str(amc.id)),
+                "scheme_plan": "Test Plan",
+                "scheme_type": "Test Type",
+                "scheme_category": "Test Category",
+                "nav": 10.0,
+                "isin": f"{str(uuid.uuid4())[:12]}",  # noqa: WPS237
+                "cagr": 5.0,
+                "risk_level": "Test Risk Level",
+                "aum": 1000000.0,
+                "ter": 1.0,
+                "rating": 5,
+                "benchmark_index": "Test Benchmark Index",
+                "min_investment_sip": 500.0,
+                "min_investment_one_time": 5000.0,
+                "exit_load": "Test Exit Load",
+                "fund_manager": "Test Fund Manager",
+                "return_since_inception": 10.0,
+                "return_last_year": 5.0,
+                "return_last3_years": 15.0,
+                "return_last5_years": 25.0,
+                "standard_deviation": 0.05,
+                "sharpe_ratio": 1.0,
+                "sortino_ratio": 1.0,
+                "alpha": 0.1,
+                "beta": 1.0,
+            },
+        )
+        await dbsession.commit()
+        return mutualfundscheme_instance
+
+    return _mutualfundscheme_factory
+
+
+@pytest.fixture
+def mutualfundschemes_factory(  # noqa: WPS234
+    mutualfundscheme_factory: Callable[
+        [],
+        Coroutine[
+            Any,
+            Any,
+            MutualFundScheme,
+        ],
+    ],
+    dbsession: AsyncSession,
+    amc: AMC,
+) -> Callable[[int], Coroutine[Any, Any, List[MutualFundScheme]]]:
+    """
+    Pytest fixture for creating a list of MutualFundScheme instances.
+
+    It uses the MutualFundScheme fixture to get the mutual fund scheme instance.
+    It returns a function that takes a parameter n and creates n MutualFundScheme
+    instances.
+
+    :return: Function that creates a list of n MutualFundScheme instances.
+    """
+
+    async def _mutualfundschemes_factory(num_schemes: int) -> List[MutualFundScheme]:
+        mutualfundschemes = []
+        for _ in range(num_schemes):
+            mutualfundscheme_instance = await mutualfundscheme_factory()
+            mutualfundschemes.append(mutualfundscheme_instance)
+        return mutualfundschemes
+
+    return _mutualfundschemes_factory
+
+
+@pytest.fixture
+def mutualfundschemes_with_proportions_factory(  # noqa: WPS234
+    mutualfundschemes_factory: Callable[
+        [int],
+        Coroutine[Any, Any, List[MutualFundScheme]],
+    ],
+) -> Callable[
+    [int],
+    Coroutine[Any, Any, List[Tuple[MutualFundScheme, int]]],
+]:  # noqa: WPS221
+    """
+    Create a factory for creating a list of mutual fund schemes with proportions.
+
+    The proportions are random and add up to 100.
+
+    :param mutualfundschemes_factory: Factory that create MutualFundScheme instances.
+    :return: Factory that creates a list of MutualFundScheme+proportion instances.
+    """
+
+    async def _mutualfundschemes_with_proportions_factory(
+        num_schemes: int,
+    ) -> List[Tuple[MutualFundScheme, int]]:
+        mutualfundschemes = await mutualfundschemes_factory(num_schemes)
+        proportions = [random.random() for _ in range(num_schemes)]  # noqa: S311
+        sum_proportions = sum(proportions)
+        proportions = [
+            round(100 * (proportion / sum_proportions)) for proportion in proportions
+        ]
+        # Adjust the last proportion so that the proportions add up to 100
+        proportions[-1] = 100 - sum(proportions[:-1])
+        return list(
+            zip(mutualfundschemes, [int(proportion) for proportion in proportions]),
+        )
+
+    return _mutualfundschemes_with_proportions_factory

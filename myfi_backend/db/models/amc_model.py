@@ -20,6 +20,30 @@ class AMC(BaseModel):
         index=True,
         nullable=False,
     )
+    code: Mapped[str] = mapped_column(
+        String(length=200),
+        nullable=False,
+    )
+    fund_name: Mapped[str] = mapped_column(
+        String(length=200),
+        nullable=False,
+    )
+    email: Mapped[str] = mapped_column(
+        String(length=200),
+        nullable=False,
+    )
+    phone: Mapped[str] = mapped_column(
+        String(length=200),
+        nullable=False,
+    )
+    address: Mapped[str] = mapped_column(
+        String(length=200),
+        nullable=False,
+    )
+    website: Mapped[str] = mapped_column(
+        String(length=200),
+        nullable=False,
+    )
 
     # Relationship with MutualFundScheme
     mutual_fund_schemes: Mapped[List["MutualFundScheme"]] = relationship(  # noqa: F821

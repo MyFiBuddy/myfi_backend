@@ -82,6 +82,10 @@ ignore =
   WPS337,
   ; Found simplifiable returning `if` condition in a function
   WPS531,
+  ; Found multi-line function type annotation
+  WPS320
+  ; Found multiline loop
+  WPS352
 
 per-file-ignores =
   ; all tests

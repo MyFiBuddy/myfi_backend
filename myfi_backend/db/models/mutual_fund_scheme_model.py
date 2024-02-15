@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -8,6 +8,7 @@ from myfi_backend.db.models.base_model import BaseModel
 
 if TYPE_CHECKING:
     from myfi_backend.db.models.amc_model import AMC
+    from myfi_backend.db.models.portfolio_model import PortfolioMutualFund
 
 
 class MutualFundScheme(BaseModel):
@@ -151,4 +152,10 @@ class MutualFundScheme(BaseModel):
     amc: Mapped["AMC"] = relationship(  # noqa: F821
         "AMC",
         back_populates="mutual_fund_schemes",
+    )
+
+    # Relationship with PortfolioMutualFund
+    portfolios: Mapped[List["PortfolioMutualFund"]] = relationship(
+        "PortfolioMutualFund",
+        back_populates="mutualfundscheme",
     )
