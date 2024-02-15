@@ -28,7 +28,7 @@ from myfi_backend.db.models import load_all_models
 from myfi_backend.db.models.adviser_model import Adviser
 from myfi_backend.db.models.amc_model import AMC
 from myfi_backend.db.models.base_model import BaseModel
-from myfi_backend.db.models.distributer_model import Distributor
+from myfi_backend.db.models.distributor_model import Distributor
 from myfi_backend.db.models.employee_model import Employee
 from myfi_backend.db.models.mutual_fund_scheme_model import MutualFundScheme
 from myfi_backend.db.models.organization_model import Organization
@@ -502,10 +502,7 @@ def mutualfundschemes_with_proportions_factory(  # noqa: WPS234
         [int],
         Coroutine[Any, Any, List[MutualFundScheme]],
     ],
-) -> Callable[
-    [int],
-    Coroutine[Any, Any, List[Tuple[MutualFundScheme, int]]],
-]:  # noqa: WPS221
+) -> Callable[[int], Coroutine[Any, Any, List[Tuple[MutualFundScheme, int]]]]:
     """
     Create a factory for creating a list of mutual fund schemes with proportions.
 

@@ -7,7 +7,7 @@ from myfi_backend.db.models.base_model import BaseModel
 
 if TYPE_CHECKING:
     from myfi_backend.db.models.adviser_model import Adviser
-    from myfi_backend.db.models.distributer_model import Distributor
+    from myfi_backend.db.models.distributor_model import Distributor
     from myfi_backend.db.models.employee_model import Employee
 
 

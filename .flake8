@@ -86,6 +86,8 @@ ignore =
   WPS320
   ; Found multiline loop
   WPS352
+  ; Found line with high Jones Complexity
+  WPS221
 
 per-file-ignores =
   ; all tests

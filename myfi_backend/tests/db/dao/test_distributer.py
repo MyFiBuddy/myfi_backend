@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from myfi_backend.db.dao.distributer_dao import DistributorDAO
-from myfi_backend.db.models.distributer_model import Distributor
+from myfi_backend.db.models.distributor_model import Distributor
 from myfi_backend.db.models.organization_model import Organization
 
 
