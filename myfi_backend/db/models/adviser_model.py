@@ -8,6 +8,7 @@ from myfi_backend.db.models.base_model import BaseModel
 
 if TYPE_CHECKING:
     from myfi_backend.db.models.organization_model import Organization
+    from myfi_backend.db.models.portfolio_model import Portfolio
 
 
 class Adviser(BaseModel):
@@ -36,4 +37,10 @@ class Adviser(BaseModel):
     organization: Mapped["Organization"] = relationship(  # noqa: F821
         "Organization",
         back_populates="advisers",
+    )
+
+    # Relationship with Portfolio
+    portfolios: Mapped["Portfolio"] = relationship(
+        "Portfolio",
+        back_populates="adviser",
     )

@@ -18,6 +18,12 @@ async def test_create_amc(dbsession: AsyncSession) -> None:
     amc = await dao.create(
         {
             "name": "New AMC",
+            "code": "NEWAMC",
+            "address": "New AMC Address",
+            "email": "newamc@email.com",
+            "phone": "1234567890",
+            "website": "https://newamc.com",
+            "fund_name": "New AMC Fund",
         },
     )
     await dbsession.commit()
@@ -38,16 +44,46 @@ async def test_create_amc_without_name(dbsession: AsyncSession) -> None:
 async def test_create_amc_with_duplicate_name(dbsession: AsyncSession) -> None:
     """Test creating multiple AMC with same name."""
     amc_dao = AmcDAO(dbsession)
-    await amc_dao.create({"name": "Test AMC"})
+    await amc_dao.create(
+        {
+            "name": "Test AMC",
+            "code": "NEWAMC",
+            "address": "New AMC Address",
+            "email": "newamc@email.com",
+            "phone": "1234567890",
+            "website": "https://newamc.com",
+            "fund_name": "New AMC Fund",
+        },
+    )
     with pytest.raises(IntegrityError):
-        await amc_dao.create({"name": "Test AMC"})
+        await amc_dao.create(
+            {
+                "name": "Test AMC",
+                "code": "NEWAMC",
+                "address": "New AMC Address",
+                "email": "newamc@email.com",
+                "phone": "1234567890",
+                "website": "https://newamc.com",
+                "fund_name": "New AMC Fund",
+            },
+        )
 
 
 @pytest.mark.anyio
 async def test_amc_mutual_fund_schemes(dbsession: AsyncSession) -> None:
     """Test getting schemes for an amc."""
     amc_dao = AmcDAO(dbsession)
-    amc = await amc_dao.create({"name": "Test AMC"})
+    amc = await amc_dao.create(
+        {
+            "name": "Test AMC",
+            "code": "NEWAMC",
+            "address": "New AMC Address",
+            "email": "newamc@email.com",
+            "phone": "1234567890",
+            "website": "https://newamc.com",
+            "fund_name": "New AMC Fund",
+        },
+    )
 
     scheme_dao = MutualFundSchemeDAO(dbsession)
     schemes = [
