@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from myfi_backend.db.dao.base_dao import BaseDAO
-from myfi_backend.db.models.distributer_model import Distributor
+from myfi_backend.db.models.distributor_model import Distributor
 
 
 class DistributorDAO(BaseDAO[Distributor]):
