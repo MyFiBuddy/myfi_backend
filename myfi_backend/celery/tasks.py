@@ -60,8 +60,7 @@ def dummy_scheduled_task(msg: str) -> None:
 def fetch_amc_data_task() -> None:
     """Celery task to fetch AMC data."""
     client = AmcClient(accord_base_url)
-    loop = asyncio.get_event_loop()
-    data = loop.run_until_complete(
+    data = asyncio.run(
         client.fetch_amc_data(
             filename="Amc_mst",
             date="30092022",
@@ -71,7 +70,7 @@ def fetch_amc_data_task() -> None:
         ),
     )
     dbsession = get_db_session()
-    loop.run_until_complete(parse_and_save_amc_data(data, dbsession))
+    asyncio.run(parse_and_save_amc_data(data, dbsession))
     logging.info("Fetched and saved AMC data to the database.")
 
 
