@@ -57,20 +57,21 @@ async def _engine() -> AsyncGenerator[AsyncEngine, None]:
 
     :yield: new engine.
     """
-    target_metadata = BaseModel.metadata
-    load_all_models()
+    with patch.object(settings, "db_host", "localhost"):
+        target_metadata = BaseModel.metadata
+        load_all_models()
 
-    await create_database()
+        await create_database()
 
-    engine = create_async_engine(str(settings.db_url))
-    async with engine.begin() as conn:
-        await conn.run_sync(target_metadata.create_all)
+        engine = create_async_engine(str(settings.get_db_url()))
+        async with engine.begin() as conn:
+            await conn.run_sync(target_metadata.create_all)
 
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
-        await drop_database()
+        try:
+            yield engine
+        finally:
+            await engine.dispose()
+            await drop_database()
 
 
 @pytest.fixture

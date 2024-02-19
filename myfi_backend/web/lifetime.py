@@ -33,7 +33,7 @@ def _setup_db(app: FastAPI) -> None:
 
     :param app: fastAPI application.
     """
-    engine = create_async_engine(str(settings.db_url), echo=settings.db_echo)
+    engine = create_async_engine(str(settings.get_db_url()), echo=settings.db_echo)
     session_factory = async_sessionmaker(
         engine,
         expire_on_commit=False,

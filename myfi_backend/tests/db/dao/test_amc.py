@@ -70,6 +70,55 @@ async def test_create_amc_with_duplicate_name(dbsession: AsyncSession) -> None:
 
 
 @pytest.mark.anyio
+async def test_upsert(dbsession: AsyncSession) -> None:
+    """Test AMC upsert."""
+    # Mock amc data
+    amc_data = {
+        "name": "Test AMC",
+        "code": "123",
+        "address": "Address 1 Address 2 Address 3",
+        "email": "test@example.com",
+        "phone": "1234567890",
+        "website": "www.example.com",
+        "fund_name": "Test Fund",
+    }
+
+    # Create a DAO object using the session
+    amc_dao = AmcDAO(dbsession)
+
+    # Call upsert function
+    await amc_dao.upsert(amc_data)
+
+    amc_data_updated = {
+        "name": "Test AMC",
+        "code": "123",
+        "address": "Address 1 Address 2 Address 3",
+        "email": "test_updated@example.com",  # Updated email
+        "phone": "1234567890",
+        "website": "www.example.com",
+        "fund_name": "Test Fund",
+    }
+
+    # Call upsert function again
+    await amc_dao.upsert(amc_data_updated)
+
+    # Query the database for the inserted AMC data
+    stmt = select(AMC).where(AMC.code == amc_data["code"])
+    result = await dbsession.execute(stmt)
+    db_amc = result.scalars().first()
+
+    # Assert that the AMC data was inserted correctly
+    assert db_amc is not None
+    assert db_amc.name == amc_data["name"]
+    assert db_amc.code == amc_data["code"]
+    assert db_amc.address == amc_data["address"]
+    assert db_amc.email == amc_data_updated["email"]  # check updated email
+    assert db_amc.phone == amc_data["phone"]
+    assert db_amc.website == amc_data["website"]
+    assert db_amc.fund_name == amc_data["fund_name"]
+
+
+@pytest.mark.anyio
 async def test_amc_mutual_fund_schemes(dbsession: AsyncSession) -> None:
     """Test getting schemes for an amc."""
     amc_dao = AmcDAO(dbsession)

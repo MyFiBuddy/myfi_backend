@@ -86,8 +86,7 @@ class Settings(BaseSettings):
     # E.G. http://localhost:4317
     opentelemetry_endpoint: Optional[str] = None
 
-    @property
-    def db_url(self) -> URL:
+    def get_db_url(self) -> URL:
         """
         Assemble database URL from settings.
 
