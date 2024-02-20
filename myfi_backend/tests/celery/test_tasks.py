@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from myfi_backend.celery.tasks import (
     dummy_scheduled_task,
     dummy_task,
@@ -36,8 +34,9 @@ def test_dummy_scheduled_task(mock_logging: MagicMock) -> None:
 @patch("myfi_backend.celery.tasks.AmcClient")
 @patch("myfi_backend.celery.tasks.asyncio.run", new_callable=MagicMock)
 @patch("myfi_backend.celery.tasks.accord_base_url", new_callable=MagicMock)
-@pytest.mark.anyio
-async def test_fetch_amc_data_task(
+@patch("myfi_backend.celery.tasks.parse_and_save_amc_data", new_callable=MagicMock)
+def test_fetch_amc_data_task(
+    mock_parse_and_save: MagicMock,
     mock_url: MagicMock,
     mock_run: MagicMock,
     mock_amc_client: MagicMock,
@@ -49,7 +48,7 @@ async def test_fetch_amc_data_task(
     """
     mock_client_instance = mock_amc_client.return_value
 
-    fetch_amc_data_task()
+    fetch_amc_data_task.apply()
 
     mock_amc_client.assert_called_once_with(mock_url)
     mock_run.assert_any_call(
@@ -61,6 +60,7 @@ async def test_fetch_amc_data_task(
             token="",
         ),
     )
+    mock_parse_and_save.assert_called_once()
     mock_logging.info.assert_called_once_with(
         "Fetched and saved AMC data to the database.",
     )
