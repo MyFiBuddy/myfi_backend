@@ -28,7 +28,7 @@ from myfi_backend.db.models import load_all_models
 from myfi_backend.db.models.adviser_model import Adviser
 from myfi_backend.db.models.amc_model import AMC
 from myfi_backend.db.models.base_model import BaseModel
-from myfi_backend.db.models.distributer_model import Distributor
+from myfi_backend.db.models.distributor_model import Distributor
 from myfi_backend.db.models.employee_model import Employee
 from myfi_backend.db.models.mutual_fund_scheme_model import MutualFundScheme
 from myfi_backend.db.models.organization_model import Organization
@@ -57,20 +57,21 @@ async def _engine() -> AsyncGenerator[AsyncEngine, None]:
 
     :yield: new engine.
     """
-    target_metadata = BaseModel.metadata
-    load_all_models()
+    with patch.object(settings, "db_host", "localhost"):
+        target_metadata = BaseModel.metadata
+        load_all_models()
 
-    await create_database()
+        await create_database()
 
-    engine = create_async_engine(str(settings.db_url))
-    async with engine.begin() as conn:
-        await conn.run_sync(target_metadata.create_all)
+        engine = create_async_engine(str(settings.get_db_url()))
+        async with engine.begin() as conn:
+            await conn.run_sync(target_metadata.create_all)
 
-    try:
-        yield engine
-    finally:
-        await engine.dispose()
-        await drop_database()
+        try:
+            yield engine
+        finally:
+            await engine.dispose()
+            await drop_database()
 
 
 @pytest.fixture
@@ -502,10 +503,7 @@ def mutualfundschemes_with_proportions_factory(  # noqa: WPS234
         [int],
         Coroutine[Any, Any, List[MutualFundScheme]],
     ],
-) -> Callable[
-    [int],
-    Coroutine[Any, Any, List[Tuple[MutualFundScheme, int]]],
-]:  # noqa: WPS221
+) -> Callable[[int], Coroutine[Any, Any, List[Tuple[MutualFundScheme, int]]]]:
     """
     Create a factory for creating a list of mutual fund schemes with proportions.
 

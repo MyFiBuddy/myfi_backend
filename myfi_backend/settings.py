@@ -4,10 +4,13 @@ from pathlib import Path
 from tempfile import gettempdir
 from typing import Optional
 
+from dotenv import load_dotenv
 from pydantic import BaseSettings
 from yarl import URL
 
 TEMP_DIR = Path(gettempdir())
+
+load_dotenv()
 
 
 class LogLevel(str, enum.Enum):  # noqa: WPS600
@@ -40,6 +43,13 @@ class Settings(BaseSettings):
     environment: str = "dev"
 
     log_level: LogLevel = LogLevel.INFO
+
+    # Variables for APIs
+    accord_token: str = os.getenv("ACCORD_TOKEN", default="")
+    accord_base_url: str = os.getenv(
+        "ACCORD_BASE_URL",
+        default="https://contentapi.accordwebservices.com/RawData",
+    )
 
     # Variables for the database
     db_host: str = os.getenv("MYFI_BACKEND_DB_HOST", default="myfi_backend-db")
@@ -76,8 +86,7 @@ class Settings(BaseSettings):
     # E.G. http://localhost:4317
     opentelemetry_endpoint: Optional[str] = None
 
-    @property
-    def db_url(self) -> URL:
+    def get_db_url(self) -> URL:
         """
         Assemble database URL from settings.
 
