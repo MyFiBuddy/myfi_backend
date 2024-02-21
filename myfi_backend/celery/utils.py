@@ -3,6 +3,7 @@ from typing import Any, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from myfi_backend.db.dao.amc_dao import AmcDAO
+from myfi_backend.db.dao.scheme_dao import SchemeDAO
 from myfi_backend.db.models.adviser_model import Adviser  # noqa: F401
 from myfi_backend.db.models.amc_model import AMC  # noqa: F401
 from myfi_backend.db.models.distributor_model import Distributor  # noqa: F401
@@ -43,3 +44,33 @@ async def parse_and_save_amc_data(
             }
             # Save the AMC data to the database
             await amc_dao.upsert(amc_data)
+
+
+async def parse_and_save_amc_scheme_data(
+    data: Dict[str, Any],
+    dbsession: AsyncSession,
+) -> None:
+    """
+    Parse AMC data and save it to the database.
+
+    :param data: The data to parse and save. This should be a dictionary.
+    :param dbsession: The database session to use.
+    """
+    # Create a new session
+
+    async with dbsession.begin():
+        # Create a DAO object using the session
+        scheme_dao = SchemeDAO(dbsession)
+
+        for item in data["Table"]:
+            # Create a dictionary containing the AMC data
+            scheme_data = {
+                "name": item["s_name"],
+                "schemecode": item["schemecode"],
+                "amc_code": item["amc_code"],
+                "amfi_name": item["amfi_name"],
+                "plan": item["plan"],
+                "mininvt": item["mininvt"],
+            }
+            # Save the AMC data to the database
+            await scheme_dao.upsert(scheme_data)
