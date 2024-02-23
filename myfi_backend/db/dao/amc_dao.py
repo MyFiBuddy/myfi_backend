@@ -31,6 +31,7 @@ class AmcDAO(BaseDAO[AMC]):
             select(AMC).filter_by(code=amc_data["code"]),
         )
         amc = result.scalars().first()
+
         if amc is None:
             # AMC with this code does not exist, create a new one
             amc = AMC(**amc_data)

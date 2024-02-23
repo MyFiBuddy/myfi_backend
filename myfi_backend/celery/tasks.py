@@ -60,7 +60,13 @@ def dummy_scheduled_task(msg: str) -> None:
 def fetch_amc_data_task() -> None:
     """Celery task to fetch AMC data."""
     client = AmcClient(accord_base_url)
-    data = asyncio.run(
+    loop = (
+        asyncio.get_event_loop()
+        if asyncio.get_event_loop()
+        else asyncio.new_event_loop()
+    )
+    asyncio.set_event_loop(loop)
+    data = loop.run_until_complete(
         client.fetch_amc_data(
             filename="Amc_mst",
             date="30092022",
@@ -70,7 +76,7 @@ def fetch_amc_data_task() -> None:
         ),
     )
     dbsession = get_db_session()
-    asyncio.run(parse_and_save_amc_data(data, dbsession))
+    loop.run_until_complete(parse_and_save_amc_data(data, dbsession))
     logging.info("Fetched and saved AMC data to the database.")
 
 
@@ -98,7 +104,7 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
 
     # Calls fetch_amc_data_task() every day at 6 AM.
     sender.add_periodic_task(
-        crontab(hour=6, minute=0),
+        crontab(hour=5, minute=0),
         fetch_amc_data_task.s(),
         name="Fetch AMC data every day at 6 AM",
     )
