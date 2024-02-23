@@ -26,4 +26,4 @@ class HttpClient:
             url = f"{self.base_url}/{endpoint}"
             response = await client.get(url, params=params)
             response.raise_for_status()  # Raise an exception for HTTP errors
-            return await response.json()  # Parse the JSON response and return it
+            return response.json()  # Parse the JSON response and return it

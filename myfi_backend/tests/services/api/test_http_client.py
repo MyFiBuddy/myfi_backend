@@ -21,7 +21,7 @@ async def test_fetch_data() -> None:
     # Mock httpx.AsyncClient.get method
     with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
         mock_response = AsyncMock(spec=Response, status_code=200)
-        mock_response.json = AsyncMock(return_value=api_response)
+        mock_response.json.return_value = api_response
         mock_get.return_value = mock_response
 
         # Call the function

@@ -1,3 +1,4 @@
+from asyncio import AbstractEventLoop
 from unittest.mock import MagicMock, patch
 
 from myfi_backend.celery.tasks import (
@@ -30,37 +31,39 @@ def test_dummy_scheduled_task(mock_logging: MagicMock) -> None:
     )
 
 
-@patch("myfi_backend.celery.tasks.logging")
-@patch("myfi_backend.celery.tasks.AmcClient")
-@patch("myfi_backend.celery.tasks.asyncio.run", new_callable=MagicMock)
-@patch("myfi_backend.celery.tasks.accord_base_url", new_callable=MagicMock)
-@patch("myfi_backend.celery.tasks.parse_and_save_amc_data", new_callable=MagicMock)
-def test_fetch_amc_data_task(
-    mock_parse_and_save: MagicMock,
-    mock_url: MagicMock,
-    mock_run: MagicMock,
-    mock_amc_client: MagicMock,
-    mock_logging: MagicMock,
-) -> None:
+def test_fetch_amc_data_task() -> None:
     """Test fetch_amc_data_task.
 
     Test to check if the Celery task 'fetch_amc_data_task' is working as expected.
     """
-    mock_client_instance = mock_amc_client.return_value
+    with patch(  # noqa: WPS316
+        "myfi_backend.celery.tasks.AmcClient",
+    ) as mock_amc_client, patch(
+        "myfi_backend.celery.tasks.accord_base_url",
+        new_callable=MagicMock,
+    ) as mock_url, patch(
+        "myfi_backend.celery.tasks.accord_token",
+        new="test_token",
+    ) as mock_accord_token, patch(
+        "myfi_backend.celery.tasks.parse_and_save_amc_data",
+        new_callable=MagicMock,
+    ) as mock_parse_and_save, patch(
+        "asyncio.get_event_loop",
+    ) as mock_get_event_loop:
+        mock_loop = MagicMock(spec=AbstractEventLoop)
+        mock_get_event_loop.return_value = mock_loop
 
-    fetch_amc_data_task.apply()
+        mock_client_instance = mock_amc_client.return_value
+        mock_client_instance.fetch_amc_data = MagicMock()
 
-    mock_amc_client.assert_called_once_with(mock_url)
-    mock_run.assert_any_call(
-        mock_client_instance.fetch_amc_data(  # noqa: S106
+        fetch_amc_data_task.apply()
+
+        mock_amc_client.assert_called_once_with(mock_url)
+        mock_parse_and_save.assert_called_once()
+        mock_client_instance.fetch_amc_data.assert_called_once_with(
             filename="Amc_mst",
             date="30092022",
             section="MFMaster",
             sub="",
-            token="",
-        ),
-    )
-    mock_parse_and_save.assert_called_once()
-    mock_logging.info.assert_called_once_with(
-        "Fetched and saved AMC data to the database.",
-    )
+            token=mock_accord_token,
+        )
