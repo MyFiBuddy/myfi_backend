@@ -104,7 +104,7 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
 
     # Calls fetch_amc_data_task() every day at 6 AM.
     sender.add_periodic_task(
-        20,
+        crontab(hour=5, minute=0),
         fetch_amc_data_task.s(),
         name="Fetch AMC data every day at 6 AM",
     )
