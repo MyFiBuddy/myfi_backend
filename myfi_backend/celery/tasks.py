@@ -12,7 +12,10 @@ from myfi_backend.services.api.accord_client import AmcClient
 from myfi_backend.settings import settings
 
 celery = Celery(__name__)
-celery.conf.broker_url = os.environ.get("CELERY_BROKER_URL", settings.celery_broker)
+celery.conf.broker_url = os.environ.get(
+    "CELERY_BROKER_URL",
+    settings.celery_broker,
+)
 celery.conf.result_backend = os.environ.get(
     "CELERY_RESULT_BACKEND",
     settings.celery_backend,
@@ -24,7 +27,10 @@ celery.autodiscover_tasks()
 accord_token = settings.accord_token
 accord_base_url = settings.accord_base_url
 
-engine = create_async_engine(str(settings.get_db_url()), echo=settings.db_echo)
+engine = create_async_engine(
+    str(settings.get_db_url()),
+    echo=settings.db_echo,
+)
 session_factory = async_sessionmaker(
     engine,
     expire_on_commit=False,
@@ -80,6 +86,24 @@ def fetch_amc_data_task() -> None:
     logging.info("Fetched and saved AMC data to the database.")
 
 
+@celery.task(name="fetch_amc_scheme_data_task")
+def fetch_amc_scheme_data_task() -> None:
+    """Celery task to fetch AMC scheme data."""
+    client = AmcClient(accord_base_url)
+    data = asyncio.run(
+        client.fetch_amc_scheme_data(
+            filename="Scheme_Details",
+            date="30092022",
+            section="MFMaster",
+            sub="",
+            token=accord_token,
+        ),
+    )
+    dbsession = get_db_session()
+    asyncio.run(parse_and_save_amc_data(data, dbsession))
+    logging.info("Fetched and saved AMC scheme data to the database.")
+
+
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
     """Celery beat scheduler.
@@ -107,4 +131,11 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
         20,
         fetch_amc_data_task.s(),
         name="Fetch AMC data every day at 6 AM",
+    )
+
+    # Calls fetch_amc_scheme_data_task() every day at 6 AM.
+    sender.add_periodic_task(
+        crontab(hour=6, minute=0),
+        fetch_amc_scheme_data_task.s(),
+        name="Fetch AMC scheme data every day at 6 AM",
     )
