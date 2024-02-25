@@ -5,6 +5,7 @@ from pydantic import BaseModel, validator
 
 from myfi_backend.web.api.user.schema import UserDTO
 
+
 class OtpDTO(BaseModel):
     """Represents a one-time password (OTP) used for authentication.
 

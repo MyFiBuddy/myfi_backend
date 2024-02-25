@@ -1,6 +1,16 @@
 from fastapi.routing import APIRouter
 
-from myfi_backend.web.api import docs, dummy, echo, investment, monitoring, otp, redis, user, scheme
+from myfi_backend.web.api import (  # noqa: WPS235
+    docs,
+    dummy,
+    echo,
+    investment,
+    monitoring,
+    otp,
+    redis,
+    scheme,
+    user,
+)
 
 api_router = APIRouter()
 api_router.include_router(monitoring.router)
