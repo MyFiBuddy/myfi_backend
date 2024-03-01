@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from celery import Celery, Task
 from celery.schedules import crontab
-from myfi_backend.celery.utils import parse_and_save_amc_data
+from myfi_backend.celery.utils import insert_dummy_data, parse_and_save_amc_data
 from myfi_backend.services.api.accord_client import AmcClient
 from myfi_backend.settings import settings
 
@@ -80,6 +80,20 @@ def fetch_amc_data_task() -> None:
     logging.info("Fetched and saved AMC data to the database.")
 
 
+@celery.task(name="insert_dummy_data_to_db")
+def save_dummy_data_to_db() -> None:
+    """Insert dummy data to the database."""
+    dbsession = get_db_session()
+    loop = (
+        asyncio.get_event_loop()
+        if asyncio.get_event_loop()
+        else asyncio.new_event_loop()
+    )
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(insert_dummy_data(dbsession))
+    logging.info("Inserted dummy data to the database.")
+
+
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
     """Celery beat scheduler.
@@ -106,5 +120,12 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
     sender.add_periodic_task(
         crontab(hour=5, minute=0),
         fetch_amc_data_task.s(),
+        name="Fetch AMC data every day at 6 AM",
+    )
+
+    # Calls save_dummy_data_to_db() every 5 minute
+    sender.add_periodic_task(
+        5 * 60,
+        save_dummy_data_to_db.s(),
         name="Fetch AMC data every day at 6 AM",
     )
