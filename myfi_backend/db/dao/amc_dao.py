@@ -1,4 +1,4 @@
-from typing import Mapping, Union
+from typing import Mapping, Optional, Union
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,19 @@ class AmcDAO(BaseDAO[AMC]):
 
     def __init__(self, session: AsyncSession):
         super().__init__(AMC, session)
+
+    async def get_by_code(self, amc_code: str) -> Optional[AMC]:
+        """
+        Get a model instance by amc code.
+
+        :param amc_code: The code of the amc instance to get.
+        :return: The AMC instance if found, else None.
+        """
+        result = await self.session.execute(
+            select(AMC).filter_by(code=amc_code),
+        )
+        instance = result.scalars().first()
+        return instance if instance else None
 
     async def upsert(self, amc_data: Mapping[str, Union[str, UUID, float]]) -> AMC:
         """
