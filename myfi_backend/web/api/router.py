@@ -7,6 +7,7 @@ from myfi_backend.web.api import (  # noqa: WPS235
     investment,
     monitoring,
     otp,
+    portfolio,
     redis,
     scheme,
     user,
@@ -22,3 +23,4 @@ api_router.include_router(dummy.router, prefix="/dummy", tags=["dummy"])
 api_router.include_router(redis.router, prefix="/redis", tags=["redis"])
 api_router.include_router(user.router, prefix="/user", tags=["user"])
 api_router.include_router(scheme.router, prefix="/scheme", tags=["scheme"])
+api_router.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])

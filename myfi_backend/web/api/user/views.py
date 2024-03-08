@@ -13,7 +13,7 @@ from myfi_backend.web.api.user.schema import UserDTO
 router = APIRouter()
 
 
-@router.get("/", response_model=Dict[str, UserDTO])
+@router.get("/user", response_model=Dict[str, UserDTO])
 async def get_user(
     user_id: UUID,
     redis_pool: ConnectionPool = Depends(get_redis_pool),
@@ -32,10 +32,10 @@ async def get_user(
         hash_key=REDIS_HASH_USER,
     )
     if value is None:
-        raise HTTPException(status_code=400, detail="Invalid request.")
+        raise HTTPException(status_code=400, detail="Oopsie! Unable to access that")
     user = get_user_from_db(
         user_id,
-    )  # replace with your actual function to get a user from your database
+    )
     if user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Oops! Something went wrong")
     return {"user": user}

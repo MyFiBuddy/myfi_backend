@@ -5,26 +5,26 @@ from fastapi import APIRouter, HTTPException
 from fastapi.param_functions import Depends
 from redis.asyncio import ConnectionPool
 
+from myfi_backend.services.portfolio.portfolio_service import get_portfolios
 from myfi_backend.services.redis.dependency import get_redis_pool
-from myfi_backend.services.scheme.scheme_service import get_schemes_from_db
 from myfi_backend.utils.redis import REDIS_HASH_USER, get_from_redis
-from myfi_backend.web.api.scheme.schema import SchemeDTO
+from myfi_backend.web.api.portfolio.schema import PortfolioDTO
 
 router = APIRouter()
 
 
-@router.get("/schemes/", response_model=List[SchemeDTO])
-async def get_schemes(
+@router.get("/portfolios", response_model=List[PortfolioDTO])
+async def get_portfolio(
     user_id: UUID,
     redis_pool: ConnectionPool = Depends(get_redis_pool),
-) -> List[SchemeDTO]:
+) -> List[PortfolioDTO]:
     """
-    Retrieve schemes based on user_id.
+    Retrieve portfolios based on user_id.
 
-    :param user_id: The user for whom to retrieve the schemes
+    :param user_id: The user for whom to retrieve the portfolios
     :param redis_pool: Redis connection pool.
-    :return: A list of schemes for the user.
-    :raises HTTPException: If the user ID is not provided or schemes not found.
+    :return: A list of portfolios for the user.
+    :raises HTTPException: If the user ID is not provided or portfolios not found.
     """
     value = await get_from_redis(
         redis_pool=redis_pool,
@@ -33,7 +33,7 @@ async def get_schemes(
     )
     if value is None:
         raise HTTPException(status_code=400, detail="Invalid request.")
-    schemes = get_schemes_from_db()
-    if schemes is None:
-        raise HTTPException(status_code=404, detail="Schemes not found")
-    return schemes
+    portfolios = get_portfolios(user_id)
+    if portfolios is None:
+        raise HTTPException(status_code=404, detail="Portfolios not found")
+    return portfolios

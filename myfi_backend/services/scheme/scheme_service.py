@@ -1,14 +1,12 @@
 from typing import List
-from uuid import UUID
 
 from myfi_backend.web.api.scheme.schema import SchemeDTO
 
 
-def get_schemes_from_db(user_id: UUID) -> List[SchemeDTO]:
+def get_schemes_from_db() -> List[SchemeDTO]:
     """
     Retrieve schemes from the database.
 
-    :param user_id: The user for whom to retrieve the schemes.
     :return: A list of schemes.
     """
     # Here you can handle the get_schemes_from_db data.
