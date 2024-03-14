@@ -106,14 +106,14 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
     sender.add_periodic_task(
         5 * 60,
         dummy_scheduled_task.s("hello BEAT"),
-        name="schedule task every 10 seconds",
+        name="Schedule task every 5 mins",
     )
 
     # Executes every Monday morning at 7:30 a.m.
     sender.add_periodic_task(
         crontab(hour=7, minute=30, day_of_week=1),
         dummy_scheduled_task.s("Happy Mondays!"),
-        name="schedule task every Monday at 7:30am",
+        name="Schedule task every Monday at 7:30am",
     )
 
     # Calls fetch_amc_data_task() every day at 6 AM.
@@ -127,5 +127,5 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
     sender.add_periodic_task(
         5 * 60,
         save_dummy_data_to_db.s(),
-        name="Fetch AMC data every day at 6 AM",
+        name="Save dummy data to db every 5 minutes",
     )

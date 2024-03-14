@@ -88,6 +88,10 @@ ignore =
   WPS352
   ; Found line with high Jones Complexity
   WPS221
+  ; Too complex function
+  C901
+  ; Cognitive complexity
+  WPS231
 
 per-file-ignores =
   ; all tests

@@ -195,25 +195,22 @@ alembic revision
 
 ## Running tests
 
-If you want to run it in docker, simply run:
+To run tests locally:
+
+1. Bring up local db by running:
 
 ```bash
-docker-compose -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml --project-directory . run --build --rm api pytest -vv .
-docker-compose -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml --project-directory . down
+docker-compose -f deploy/docker-compose.yml --project-directory . up --build
+poetry run pytest -vv --cov="myfi_backend" .
 ```
-
-For running tests on your local machine.
-1. you need to start a database.
-
-I prefer doing it with docker:
-```
-docker run -p "5432:5432" -e "POSTGRES_PASSWORD=myfi_backend" -e "POSTGRES_USER=myfi_backend" -e "POSTGRES_DB=myfi_backend" postgres:13.8-bullseye
-```
-
-
-2. Run the pytest.
+OR
 ```bash
-pytest -vv .
+docker run -p "5432:5432" -e "POSTGRES_PASSWORD=myfi_backend" -e "POSTGRES_USER=myfi_backend" -e "POSTGRES_DB=myfi_backend" postgres:alpine3.18
+```
+
+2. Run tests:
+```bash
+poetry run pytest -vv --cov="myfi_backend" .
 ```
 
 
