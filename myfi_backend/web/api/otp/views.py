@@ -35,7 +35,7 @@ class UserAuthType(Enum):
 
 
 @router.post("/signup/", response_model=OtpResponseDTO)
-async def signup(  # noqa: WPS231
+async def signup(
     user: UserDTO,
     redis_pool: ConnectionPool = Depends(get_redis_pool),
 ) -> OtpResponseDTO:
@@ -73,7 +73,7 @@ async def signup(  # noqa: WPS231
 
 
 @router.post("/verify/otp", response_model=OtpResponseDTO)
-async def verify_otp(  # noqa: WPS231
+async def verify_otp(
     otp: OtpDTO,
     redis_pool: ConnectionPool = Depends(get_redis_pool),
 ) -> OtpResponseDTO:
@@ -298,7 +298,7 @@ async def signup_mobile(
         raise HTTPException(status_code=400, detail="Invalid request.")
 
 
-async def verify_mobile_otp(  # noqa: WPS231
+async def verify_mobile_otp(
     redis_pool: ConnectionPool,
     otp: OtpDTO,
 ) -> Tuple[bool, bool]:
@@ -367,7 +367,7 @@ async def verify_mobile_otp(  # noqa: WPS231
     return False, is_existing_user
 
 
-async def verify_email_otp(  # noqa: WPS231
+async def verify_email_otp(
     redis_pool: ConnectionPool,
     otp: OtpDTO,
 ) -> Tuple[bool, bool]:
