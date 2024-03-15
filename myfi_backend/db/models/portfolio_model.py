@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Float, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.sqltypes import DateTime
@@ -29,13 +29,33 @@ class Portfolio(BaseModel):
     # risk_level: The risk level of the portfolio.
     risk_level: Mapped[str] = mapped_column(String, nullable=False)
     # equity_proportion: The proportion of equity in the portfolio.
-    equity_proportion: Mapped[int] = mapped_column(Integer, nullable=False)
+    equity_proportion: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
     # debt_proportion: The proportion of debt in the portfolio.
-    debt_proportion: Mapped[int] = mapped_column(Integer, nullable=False)
+    debt_proportion: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
     # hybrid_proportion: The proportion of hybrid in the portfolio.
-    hybrid_proportion: Mapped[int] = mapped_column(Integer, nullable=False)
+    hybrid_proportion: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
     # gold_proportion: The proportion of gold in the portfolio.
-    gold_proportion: Mapped[int] = mapped_column(Integer, default=0)
+    gold_proportion: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
+    # index_fund_proportion: The proportion of index funds in the portfolio.
+    index_fund_proportion: Mapped[int] = mapped_column(
+        Integer,
+        nullable=True,
+        default=0,
+    )
+    # other_proportion: The proportion of other assets in the portfolio.
+    other_proportion: Mapped[int] = mapped_column(Integer, nullable=True, default=0)
+    # logo: The URL of the portfolio's logo.
+    logo: Mapped[str] = mapped_column(String, nullable=True, default="")
+    # three_month_return: The three-month return of the portfolio.
+    three_month_return: Mapped[float] = mapped_column(Float, nullable=True, default=0)
+    # six_month_return: The three-month return of the portfolio.
+    six_month_return: Mapped[float] = mapped_column(Float, nullable=True, default=0)
+    # one_year_return: The three-month return of the portfolio.
+    one_year_return: Mapped[float] = mapped_column(Float, nullable=True, default=0)
+    # three_year_return: The three-month return of the portfolio.
+    three_year_return: Mapped[float] = mapped_column(Float, nullable=True, default=0)
+    # five_year_return: The three-month return of the portfolio.
+    five_year_return: Mapped[float] = mapped_column(Float, nullable=True, default=0)
     # created_at: The timestamp when the portfolio was created.
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=datetime.utcnow)
     # updated_at: The timestamp when the portfolio was last updated.

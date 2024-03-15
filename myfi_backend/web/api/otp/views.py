@@ -20,9 +20,9 @@ from myfi_backend.web.api.otp.schema import (
     OtpResponseDTO,
     PinDTO,
     SetPinResponseDTO,
-    UserDTO,
     VerifyPinResponseDTO,
 )
+from myfi_backend.web.api.user.schema import UserDTO
 
 router = APIRouter()
 

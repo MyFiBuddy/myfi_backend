@@ -3,18 +3,7 @@ from typing import Optional, Union
 
 from pydantic import BaseModel, validator
 
-
-class UserDTO(BaseModel):
-    """Represents a user in the system.
-
-    Attributes:
-        email (Optional[str]): The user's email address.
-        mobile (Optional[str]): The user's mobile phone number.
-    """
-
-    email: Optional[str] = None
-    mobile: Optional[str] = None
-    user_id: Optional[uuid.UUID] = None
+from myfi_backend.web.api.user.schema import UserDTO
 
 
 class OtpDTO(BaseModel):
