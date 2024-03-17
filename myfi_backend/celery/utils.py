@@ -53,6 +53,92 @@ async def parse_and_save_amc_data(
             await amc_dao.upsert(amc_data)
 
 
+async def parse_and_save_scheme_data(
+    data: Dict[str, Any],
+    dbsession: AsyncSession,
+) -> None:
+    """
+    Parse AMC data and save it to the database.
+
+    :param data: The data to parse and save. This should be a dictionary.
+    :param dbsession: The database session to use.
+    """
+    # Create a new session
+
+    async with dbsession.begin():
+        # Create a DAO object using the session
+        scheme_dao = MutualFundSchemeDAO(dbsession)
+        isin_code = 0
+        ZERO_FLOAT = 0.0
+        for items in data:
+
+            amc = await AmcDAO(dbsession).get_by_code(data[items]["amc_code"])
+            if amc is None:
+                continue
+            else:
+                scheme_data = {
+                    "name": data[items]["name"],
+                    "amc_id": amc.id,
+                    "scheme_plan": data[items]["scheme_plan"],
+                    "scheme_type": data[items]["scheme_type"],
+                    "scheme_category": data[items]["scheme_category"],
+                    "nav": float(data[items]["nav"])
+                    if data[items]["nav"]
+                    else ZERO_FLOAT,
+                    "isin": str(isin_code),
+                    "cagr": float(data[items]["cagr"])
+                    if data[items]["cagr"]
+                    else ZERO_FLOAT,
+                    "risk_level": data[items]["risk_level"],
+                    "aum": float(data[items]["aum"])
+                    if data[items]["aum"]
+                    else ZERO_FLOAT,
+                    "ter": float(data[items]["ter"])
+                    if data[items]["ter"]
+                    else ZERO_FLOAT,
+                    "rating": 0,
+                    "benchmark_index": "A",
+                    "min_investment_sip": float(data[items]["min_investment_sip"])
+                    if data[items]["min_investment_sip"]
+                    else ZERO_FLOAT,
+                    "min_investment_one_time": 0,
+                    "exit_load": data[items]["exit_load"],
+                    "fund_manager": data[items]["fund_manager"],
+                    "return_since_inception": float(
+                        data[items]["return_since_inception"],
+                    )
+                    if data[items]["return_since_inception"]
+                    else ZERO_FLOAT,
+                    "return_last_year": float(data[items]["return_last_year"])
+                    if data[items]["return_last_year"]
+                    else ZERO_FLOAT,
+                    "return_last3_years": float(data[items]["return_last3_year"])
+                    if data[items]["return_last3_year"]
+                    else ZERO_FLOAT,
+                    "return_last5_years": float(data[items]["return_last5_year"])
+                    if data[items]["return_last5_year"]
+                    else ZERO_FLOAT,
+                    "standard_deviation": float(data[items]["standard_deviation"])
+                    if data[items]["standard_deviation"]
+                    else ZERO_FLOAT,
+                    "sharpe_ratio": float(data[items]["sharpe_ratio"])
+                    if data[items]["sharpe_ratio"]
+                    else ZERO_FLOAT,
+                    "sortino_ratio": float(data[items]["sortino_ratio"])
+                    if data[items]["sortino_ratio"]
+                    else ZERO_FLOAT,
+                    "alpha": float(data[items]["alpha"])
+                    if data[items]["alpha"]
+                    else ZERO_FLOAT,
+                    "beta": float(data[items]["beta"])
+                    if data[items]["beta"]
+                    else ZERO_FLOAT,
+                }
+                # Save the AMC data to the database
+                isin_code += 10
+                await scheme_dao.upsert(scheme_data)
+
+
 async def insert_dummy_data(  # noqa: WPS210
     dbsession: AsyncSession,
 ) -> None:
