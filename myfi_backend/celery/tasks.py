@@ -390,8 +390,7 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
 
     # Calls fetch_amc_data_task() every day at 6 AM.
     sender.add_periodic_task(
-        # crontab(hour=5, minute=0),
-        20,
+        crontab(hour=6, minute=0),
         fetch_amc_data_task.s(),
         name="Fetch AMC data every day at 6 AM",
     )
@@ -403,10 +402,9 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
         name="Insert dummy data to db",
     )
 
-    # Calls fetch_amc_scheme_data_task() every day at 6 AM.
+    # Calls fetch_amc_scheme_data_task() every day at 7 AM.
     sender.add_periodic_task(
-        # crontab(hour=5, minute=0),
-        40,
+        crontab(hour=7, minute=0),
         fetch_amc_scheme_data_task.s(),
-        name="Fetch AMC scheme data every day at 6 AM",
+        name="Fetch AMC scheme data every day at 7 AM",
     )
