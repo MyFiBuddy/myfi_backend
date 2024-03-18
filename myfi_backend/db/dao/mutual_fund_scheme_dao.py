@@ -29,7 +29,7 @@ class MutualFundSchemeDAO(BaseDAO[MutualFundScheme]):
         create a new scheme.
 
         :param scheme_data: Dictionary containing AMC scheme data.
-        :return: The updated or created AMC.
+        :return: The updated or created AMC scheme.
         """
         result = await self.session.execute(
             select(MutualFundScheme).filter_by(name=scheme_data["name"]),
@@ -37,11 +37,11 @@ class MutualFundSchemeDAO(BaseDAO[MutualFundScheme]):
         scheme = result.scalars().first()
 
         if scheme is None:
-            # AMC with this code does not exist, create a new one
+            # AMC scheme with this code does not exist, create a new one
             scheme = MutualFundScheme(**scheme_data)
             self.session.add(scheme)
         else:
-            # AMC with this code exists, update it
+            # AMC scheme with this code exists, update it
             for key, value in scheme_data.items():
                 setattr(scheme, key, value)
         return scheme

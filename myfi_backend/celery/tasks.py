@@ -1,3 +1,4 @@
+# flake8: noqa
 import asyncio
 import logging
 import os
@@ -376,7 +377,7 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
     """
     # Calls dummy_scheduled_task('hello BEAT') every 5 mins.
     sender.add_periodic_task(
-        1 * 30,
+        5 * 60,
         dummy_scheduled_task.s("hello BEAT"),
         name="Schedule task every 5 mins",
     )
