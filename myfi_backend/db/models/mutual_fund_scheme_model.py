@@ -9,6 +9,7 @@ from myfi_backend.db.models.base_model import BaseModel
 if TYPE_CHECKING:
     from myfi_backend.db.models.amc_model import AMC
     from myfi_backend.db.models.portfolio_model import PortfolioMutualFund
+    from myfi_backend.db.models.scheme_nav_model import SchemeNAV
 
 
 class MutualFundScheme(BaseModel):
@@ -157,5 +158,11 @@ class MutualFundScheme(BaseModel):
     # Relationship with PortfolioMutualFund
     portfolios: Mapped[List["PortfolioMutualFund"]] = relationship(
         "PortfolioMutualFund",
+        back_populates="mutualfundscheme",
+    )
+
+    # Relationship with SchemeNAV
+    scheme_nav: Mapped[List["SchemeNAV"]] = relationship(
+        "SchemeNAV",
         back_populates="mutualfundscheme",
     )

@@ -23,6 +23,7 @@ from myfi_backend.db.dao.employee_dao import EmployeeDAO
 from myfi_backend.db.dao.mutual_fund_scheme_dao import MutualFundSchemeDAO
 from myfi_backend.db.dao.organization_dao import OrganizationDAO
 from myfi_backend.db.dao.portfolio_dao import PortfolioDAO, PortfolioMutualFundDAO
+from myfi_backend.db.dao.scheme_nav_dao import SchemeNavDAO
 from myfi_backend.db.dependencies import get_db_session
 from myfi_backend.db.models import load_all_models
 from myfi_backend.db.models.adviser_model import Adviser
@@ -33,6 +34,7 @@ from myfi_backend.db.models.employee_model import Employee
 from myfi_backend.db.models.mutual_fund_scheme_model import MutualFundScheme
 from myfi_backend.db.models.organization_model import Organization
 from myfi_backend.db.models.portfolio_model import Portfolio, PortfolioMutualFund
+from myfi_backend.db.models.scheme_nav_model import SchemeNAV
 from myfi_backend.db.utils import create_database, drop_database
 from myfi_backend.services.redis.dependency import get_redis_pool
 from myfi_backend.settings import settings
@@ -363,6 +365,31 @@ async def mutualfundscheme(dbsession: AsyncSession, amc: AMC) -> MutualFundSchem
 
 
 @pytest.fixture
+async def schemenav(
+    dbsession: AsyncSession,
+    mutualfundscheme: MutualFundScheme,
+) -> SchemeNAV:
+    """
+    Fixture for creating a SchemeNAV.
+
+    :return: SchemeNAV instance written to db.
+    """
+    schemenav_dao = SchemeNavDAO(dbsession)
+    schemenav_instance = await schemenav_dao.create(
+        {
+            "scheme_id": mutualfundscheme.id,
+            "nav_data": {
+                "2023-01-03": 7.89,
+                "2019-01-03": 1.23,
+                "2021-01-03": 4.56,
+            },
+        },
+    )
+    await dbsession.commit()
+    return schemenav_instance
+
+
+@pytest.fixture
 async def portfolio(dbsession: AsyncSession, adviser: Adviser) -> Portfolio:
     """
     Pytest fixture for creating a PortfolioMutualFund instance.
@@ -465,7 +492,7 @@ async def mutualfundscheme_factory(
 
 
 @pytest.fixture
-def mutualfundschemes_factory(  # noqa: WPS234
+def mutualfundschemes_factory(
     mutualfundscheme_factory: Callable[
         [],
         Coroutine[
@@ -498,7 +525,7 @@ def mutualfundschemes_factory(  # noqa: WPS234
 
 
 @pytest.fixture
-def mutualfundschemes_with_proportions_factory(  # noqa: WPS234
+def mutualfundschemes_with_proportions_factory(
     mutualfundschemes_factory: Callable[
         [int],
         Coroutine[Any, Any, List[MutualFundScheme]],

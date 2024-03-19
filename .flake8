@@ -92,6 +92,10 @@ ignore =
   C901
   ; Cognitive complexity
   WPS231
+  ; Overly complex annotation
+  WPS234
+  ; Found noqa comments overuse
+  WPS402
 
 per-file-ignores =
   ; all tests

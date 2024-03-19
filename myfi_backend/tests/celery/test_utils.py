@@ -11,6 +11,7 @@ from myfi_backend.celery.utils import (
     insert_dummy_organization,
     insert_dummy_portfolio,
     insert_dummy_portfolio_mutualfundscheme,
+    insert_dummy_scheme_navs,
     insert_dummy_schemes,
     parse_and_save_amc_data,
 )
@@ -19,6 +20,7 @@ from myfi_backend.db.models.amc_model import AMC
 from myfi_backend.db.models.mutual_fund_scheme_model import MutualFundScheme
 from myfi_backend.db.models.organization_model import Organization
 from myfi_backend.db.models.portfolio_model import Portfolio, PortfolioMutualFund
+from myfi_backend.db.models.scheme_nav_model import SchemeNAV
 
 
 @pytest.mark.anyio
@@ -88,6 +90,21 @@ async def test_insert_dummy_schemes(dbsession: AsyncSession, amc: AMC) -> None:
 
 
 @pytest.mark.anyio
+async def test_insert_dummy_scheme_navs(dbsession: AsyncSession, amc: AMC) -> None:
+    """Test inserting dummy scheme NAVs."""
+    schemes = await insert_dummy_schemes(dbsession, amc)
+    scheme_navs = await insert_dummy_scheme_navs(dbsession, schemes)
+    for scheme_nav in scheme_navs:
+        result = await dbsession.execute(
+            select(SchemeNAV).where(SchemeNAV.id == scheme_nav.id),
+        )
+        fetched_scheme_nav = result.scalars().first()
+        assert fetched_scheme_nav is not None
+        assert fetched_scheme_nav.nav_data is not None
+        assert fetched_scheme_nav.scheme_id in {scheme.id for scheme in schemes}
+
+
+@pytest.mark.anyio
 async def test_insert_dummy_organization(dbsession: AsyncSession) -> None:
     """Test inserting dummy organization."""
     organization = await insert_dummy_organization(dbsession)
@@ -132,7 +149,7 @@ async def test_insert_dummy_portfolio(
 
 
 @pytest.mark.anyio
-async def test_insert_dummy_portfolio_mutualfundscheme(  # noqa: WPS234
+async def test_insert_dummy_portfolio_mutualfundscheme(
     dbsession: AsyncSession,
     portfolio: Portfolio,
     mutualfundschemes_factory: Callable[
