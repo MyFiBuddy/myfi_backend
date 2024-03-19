@@ -69,14 +69,14 @@ async def test_delete_portfolio(dbsession: AsyncSession, portfolio: Portfolio) -
 
 
 @pytest.mark.anyio
-async def test_add_mutualfundscheme_to_portfolio(  # noqa: WPS234
+async def test_add_mutualfundscheme_to_portfolio(
     dbsession: AsyncSession,
     mutualfundschemes_with_proportions_factory: Callable[
         [int],
         Coroutine[Any, Any, List[Tuple[MutualFundScheme, int]]],
     ],
     portfolio: Portfolio,
-) -> None:  # noqa: WPS234
+) -> None:
     """Test adding a MutualFundScheme to a Portfolio."""
     # Create a new DAO instance
     portfolio_dao = PortfolioDAO(dbsession)
@@ -117,7 +117,7 @@ async def test_add_mutualfundscheme_to_portfolio(  # noqa: WPS234
 
 
 @pytest.mark.anyio
-async def test_update_mutualfundschemes_in_portfolio(  # noqa: WPS234
+async def test_update_mutualfundschemes_in_portfolio(
     dbsession: AsyncSession,
     mutualfundschemes_with_proportions_factory: Callable[
         [int],

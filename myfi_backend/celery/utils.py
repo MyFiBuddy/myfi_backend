@@ -1,5 +1,7 @@
 # flake8: noqa
+import math
 import random
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +11,7 @@ from myfi_backend.db.dao.amc_dao import AmcDAO
 from myfi_backend.db.dao.mutual_fund_scheme_dao import MutualFundSchemeDAO
 from myfi_backend.db.dao.organization_dao import OrganizationDAO
 from myfi_backend.db.dao.portfolio_dao import PortfolioDAO, PortfolioMutualFundDAO
+from myfi_backend.db.dao.scheme_nav_dao import SchemeNavDAO
 from myfi_backend.db.models.adviser_model import Adviser  # noqa: F401
 from myfi_backend.db.models.amc_model import AMC  # noqa: F401
 from myfi_backend.db.models.distributor_model import Distributor  # noqa: F401
@@ -21,6 +24,7 @@ from myfi_backend.db.models.portfolio_model import (  # noqa: F401
     Portfolio,
     PortfolioMutualFund,
 )
+from myfi_backend.db.models.scheme_nav_model import SchemeNAV  # noqa: F401
 
 
 async def parse_and_save_amc_data(
@@ -152,6 +156,7 @@ async def insert_dummy_data(  # noqa: WPS210
     if amc:
         organization = await insert_dummy_organization(dbsession)
         scheme_list = await insert_dummy_schemes(dbsession, amc)
+        await insert_dummy_scheme_navs(dbsession, scheme_list)
         adviser = await insert_dummy_adviser(dbsession, organization)
         portfolio_list = await insert_dummy_portfolio(dbsession, adviser)
         for portfolio in portfolio_list:
@@ -323,6 +328,35 @@ async def insert_dummy_schemes(
         scheme_list.append(scheme)
     await dbsession.commit()
     return scheme_list
+
+
+async def insert_dummy_scheme_navs(
+    dbsession: AsyncSession,
+    schemes: List[MutualFundScheme],
+) -> List[SchemeNAV]:
+    """
+    Insert dummy SchemeNAV entries into the database.
+
+    :param dbsession: The database session to use.
+    :param schemes: The MutualFundScheme model instances to associate the SchemeNAV
+                    entries with.
+    :return: A list of SchemeNAV model instances if inserted, else an empty list.
+    """
+    scheme_nav_dao = SchemeNavDAO(dbsession)
+    scheme_nav_list: List[SchemeNAV] = []
+    nav_data = {
+        (datetime.now() - timedelta(days=index)).strftime("%Y-%m-%d"): 10.0
+        + math.sin(index / 365.0) * 5
+        for index in range(365 * 10)  # Generate data for the last 10 years
+    }
+
+    for scheme in schemes:
+        scheme_nav = await scheme_nav_dao.create(
+            {"scheme_id": scheme.id, "nav_data": nav_data},
+        )
+        scheme_nav_list.append(scheme_nav)
+    await dbsession.commit()
+    return scheme_nav_list
 
 
 async def insert_dummy_organization(dbsession: AsyncSession) -> Organization:

@@ -185,8 +185,14 @@ def fetch_and_save_nav(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch NAV values.")
-    parser.add_argument("start_date", help="Start date format 'day-month-year")
-    parser.add_argument("end_date", help="End date format 'day-month-year'")
+    parser.add_argument(
+        "start_date format dd-mmm-yyyy",
+        help='e.g. get_nav.py "11-Feb-2024" "13-Mar-2024"',
+    )
+    parser.add_argument(
+        "end_date format dd-mmm-yyyy",
+        help='e.g. get_nav.py "11-Feb-2024" "13-Mar-2024"',
+    )
     args = parser.parse_args()
     amc_codes = get_amc_codes()
     if amc_codes:
