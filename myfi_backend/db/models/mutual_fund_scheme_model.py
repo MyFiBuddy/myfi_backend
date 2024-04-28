@@ -23,6 +23,12 @@ class MutualFundScheme(BaseModel):
         index=True,
         nullable=False,
     )
+    # scheme_id: The ID of the Scheme.
+    scheme_id = mapped_column(
+        Integer,
+        unique=True,
+        nullable=True,
+    )
     # amc_id: The ID of the AMC.
     amc_id = mapped_column(
         UUID(as_uuid=True),
