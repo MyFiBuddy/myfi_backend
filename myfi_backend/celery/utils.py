@@ -76,7 +76,6 @@ async def parse_and_save_scheme_data(
         isin_code = 0
         ZERO_FLOAT = 0.0
         for items in data:
-
             amc = await AmcDAO(dbsession).get_by_code(data[items]["amc_code"])
             if amc is None:
                 continue
@@ -211,6 +210,7 @@ async def insert_dummy_schemes(
     schemes_data = [
         {
             "name": "Dummy Fund Healthcare Scheme",
+            "scheme_id": 11111,
             "amc_id": amc.id,
             "scheme_plan": "Dummy 1 Plan",
             "scheme_type": "Dummy 1 Type",
@@ -239,6 +239,7 @@ async def insert_dummy_schemes(
         },
         {
             "name": "Dummy Fund Large Cap Scheme",
+            "scheme_id": 22222,
             "amc_id": amc.id,
             "scheme_plan": "Dummy 2 Plan",
             "scheme_type": "Dummy 2 Type",
@@ -267,6 +268,7 @@ async def insert_dummy_schemes(
         },
         {
             "name": "Dummy Fund Mid Cap Scheme",
+            "scheme_id": 33333,
             "amc_id": amc.id,
             "scheme_plan": "Dummy 3 Plan",
             "scheme_type": "Dummy 3 Type",
@@ -295,6 +297,7 @@ async def insert_dummy_schemes(
         },
         {
             "name": "Dummy Fund Bank Nifty Scheme",
+            "scheme_id": 44444,
             "amc_id": amc.id,
             "scheme_plan": "Dummy 4 Plan",
             "scheme_type": "Dummy 4 Type",
