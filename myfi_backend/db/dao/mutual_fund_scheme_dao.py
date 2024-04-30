@@ -1,4 +1,4 @@
-from typing import Mapping, Union
+from typing import Mapping, Optional, Union
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +17,19 @@ class MutualFundSchemeDAO(BaseDAO[MutualFundScheme]):
 
     def __init__(self, session: AsyncSession):
         super().__init__(MutualFundScheme, session)
+
+    async def get_by_code(self, scheme_code: int) -> Optional[MutualFundScheme]:
+        """
+        Get a model instance by amc code.
+
+        :param scheme_code: The code of the scheme instance to get.
+        :return: The scheme instance if found, else None.
+        """
+        result = await self.session.execute(
+            select(MutualFundScheme).filter_by(scheme_id=scheme_code),
+        )
+        instance = result.scalars().first()
+        return instance if instance else None
 
     async def upsert(
         self,

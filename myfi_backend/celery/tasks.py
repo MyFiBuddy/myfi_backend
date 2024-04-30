@@ -12,6 +12,7 @@ from myfi_backend.celery.utils import (
     insert_dummy_data,
     parse_and_save_amc_data,
     parse_and_save_scheme_data,
+    parse_and_save_scheme_nav_data,
 )
 from myfi_backend.services.api.accord_client import AmcClient
 from myfi_backend.settings import settings
@@ -83,6 +84,38 @@ def fetch_amc_data_task() -> None:
     dbsession = get_db_session()
     loop.run_until_complete(parse_and_save_amc_data(data, dbsession))
     logging.info("Fetched and saved AMC data to the database.")
+
+
+@celery.task(name="fetch_scheme_nav_data_task")
+def fetch_scheme_nav_data_task() -> None:
+    """Celery task to fetch Scheme Nav data."""
+    client = AmcClient(accord_base_url)
+    loop = (
+        asyncio.get_event_loop()
+        if asyncio.get_event_loop()
+        else asyncio.new_event_loop()
+    )
+    asyncio.set_event_loop(loop)
+    nav_master = loop.run_until_complete(
+        client.fetch_amc_data(
+            filename="Currentnav",
+            date="30092022",
+            section="MFNav",
+            sub="",
+            token=accord_token,
+        ),
+    )
+    data = {}
+    for items in nav_master["Table"]:
+        data[items["schemecode"]] = {
+            "nav_date": items["navdate"],
+            "nav_value": items["navrs"],
+            "scheme_id": int(items["schemecode"]),
+        }
+
+    dbsession = get_db_session()
+    loop.run_until_complete(parse_and_save_scheme_nav_data(data, dbsession))
+    logging.info("Fetched and Saved Scheme NAV details to the database.")
 
 
 @celery.task(name="fetch_amc_scheme_task")
@@ -280,6 +313,7 @@ def fetch_amc_scheme_data_task() -> None:
     for items in data_scheme["Table"]:
         data_dict[items["schemecode"]] = {
             "name": items["s_name"] if items["s_name"] else "NA",
+            "scheme_id": int(items["schemecode"]),
             "amc_code": items["amc_code"] if items["amc_code"] else "NA",
             "scheme_plan": scheme_plan[items["plan"]]["scheme_plan"]
             if items["plan"] in scheme_plan
@@ -408,4 +442,10 @@ def setup_periodic_tasks(sender: Task, **kwargs: Any) -> None:
         crontab(hour=7, minute=0),
         fetch_amc_scheme_data_task.s(),
         name="Fetch AMC scheme data every day at 7 AM",
+    )
+    # Calls fetch_scheme_nav_data_task() every day at 7:30 AM.
+    sender.add_periodic_task(
+        crontab(hour=7, minute=30),
+        fetch_scheme_nav_data_task.s(),
+        name="Fetch Scheme Nav data every day at 7:30 AM",
     )

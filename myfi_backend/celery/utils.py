@@ -27,6 +27,37 @@ from myfi_backend.db.models.portfolio_model import (  # noqa: F401
 from myfi_backend.db.models.scheme_nav_model import SchemeNAV  # noqa: F401
 
 
+async def parse_and_save_scheme_nav_data(
+    data: Dict[str, Any],
+    dbsession: AsyncSession,
+) -> None:
+    """
+    Parse Scheme Nav data and save it to the database.
+
+    :param data: The data to parse and save. This should be a dictionary.
+    :param dbsession: The database session to use.
+    """
+    # Create a new session
+
+    async with dbsession.begin():
+        # Create a DAO object using the session
+        scheme_nav_dao = SchemeNavDAO(dbsession)
+        scheme_nav_data = {}
+        for item in data:
+            scheme = await MutualFundSchemeDAO(dbsession).get_by_code(
+                data[item]["scheme_id"],
+            )
+            if scheme is None:
+                continue
+            else:
+                scheme_nav_data = {
+                    "scheme_id": scheme.id,
+                    "nav_data": {data[item]["nav_date"]: data[item]["nav_value"]},
+                }
+            # Save the Scheme Nav data to the database
+            await scheme_nav_dao.upsert(scheme_nav_data)
+
+
 async def parse_and_save_amc_data(
     data: Dict[str, Any],
     dbsession: AsyncSession,
@@ -82,6 +113,7 @@ async def parse_and_save_scheme_data(
             else:
                 scheme_data = {
                     "name": data[items]["name"],
+                    "scheme_id": data[items]["scheme_id"],
                     "amc_id": amc.id,
                     "scheme_plan": data[items]["scheme_plan"],
                     "scheme_type": data[items]["scheme_type"],
