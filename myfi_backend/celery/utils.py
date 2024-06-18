@@ -1,5 +1,7 @@
 # flake8: noqa
+import csv
 import math
+import os
 import random
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -99,80 +101,150 @@ async def parse_and_save_scheme_data(
     :param data: The data to parse and save. This should be a dictionary.
     :param dbsession: The database session to use.
     """
-    # Create a new session
+
+    Amc_Map = {
+        "Baroda BNP": "771c0d62-b766-4497-a6f2-81d0ecddcf6b",
+        "Aditya Birla Sun Life AMC Limited": "6ebc4add-fb55-423e-b870-d61a58618f69",
+        # "Baroda Asset Management India Limited" :"0405312b-9fc8-44c5-9a81-6ede4b4cc5aa",
+        "Canara": "5e0986ef-ccb0-4081-bfc8-7db9187ab620",
+        "L&T": "fb23d5ca-bc37-4ec3-9872-42be44698bfb",
+        "DSP": "c3eef640-3b63-4d52-80d7-083a219f4c03",
+        "Quant ": "b6d2dd7c-7984-4e2b-ada1-2e41f31740a6",  # quant and quantum can conflict so had to add space.
+        "Franklin": "671bc9c4-f4ff-4c72-a747-97c40a82c9f9",
+        "HDFC": "7e396219-bdfe-424c-a828-95506e52ca8e",
+        "HSBC": "a2380a64-8edb-4474-b7e4-ee931b5619d8",
+        "ICICI": "bef2e060-057b-442b-a66c-6f8074fcc134",
+        "JM": "1f6ef59b-85b3-4dad-a809-df3ea09d3580",
+        "Kotak": "032a02b8-22cc-4e42-9060-841ee7ba47a2",
+        "LIC": "dc525787-d9d6-49fd-bfec-bc69818d5c27",
+        "Invesco": "d0fe114d-e41e-4c22-b192-ce7265784f95",
+        "Quantum": "a856efc8-8d5c-448f-ae3b-138bfe078461",
+        "Nippon": "9bdd759d-bbe5-4563-8f7a-4d81cf26ffcd",
+        "SBI": "c6866fa0-88f7-4bcf-89e9-6f59a4474171",
+        "IDFC": "e5c81c6a-d14c-4e67-8d5e-d0891a9cc24e",
+        "Sundaram": "6e2edbb5-c4b3-43df-9f92-1e059ecf28bb",
+        "Tata": "5a7281e7-bc39-4d5a-8e74-cc91be4b6cff",
+        "Taurus": "c8e7cf4f-4f31-401e-8682-ada2ef60055b",
+        "UTI": "227c9e4a-96d2-48f5-8427-7616c1b0d497",
+        "Mirae": "9f6aa041-fb81-437c-a043-4e3108ea3f0c",
+        "Bank of India": "1c5d873c-4a45-4e22-b728-f97b896f7b70",
+        "Edelweiss": "51ef9f92-512f-45b4-a2bc-2086c11ff219",
+        "Axis": "be4704a6-19b1-42c3-bc0e-7e1e36f2db30",
+        "Navi": "c579faf7-645e-4e34-8aa3-4ea84303172d",
+        "Motilal": "ddc9e98a-0766-448b-a8cf-9ef787ed237b",
+        "IDBI": "a294ba7b-4125-4ce7-b50c-64562fe84429",
+        "PGIM": "6bff126f-ca55-452f-bc16-9da67df63b7e",
+        "Union": "75381d2b-06f9-4ac7-8b13-cb30e5ad5f1c",
+        "IIFL": "602d731c-2a9f-458b-a621-759b51e1edd0",
+        "Indiabulls": "73992762-df6d-4494-8c76-35d455de3f1c",
+        "Parag": "2ba0a124-788b-4e2e-b318-ae7758d4f831",
+        "IL&FS": "97a69b80-4270-4aa6-be4d-d19656c1ac6f",
+        "Shriram": "858d902b-e5e5-4cd1-a0dd-25f42ecec749",
+        "Mahindra": "97840f1d-d69e-4c50-b910-e3bb97c8db4b",
+        "WhiteOak": "ba67dd81-767e-4246-8f0a-82d5a1e4c594",
+        "ITI": "883d2af5-e991-4101-ac92-22fcec6447e3",
+        "Trust": "fbafa554-f850-419c-bd83-3c372e839f15",
+        "NJ": "61d44a7c-dc05-4881-8e73-18eed0a6934b",
+        "Samco": "935a4760-e0e0-48f0-a50e-da46dda816d1",
+    }
+    input_path = os.path.join(
+        os.getcwd(),
+        "myfi_backend/scripts/scheme_data_22-May-2024_modified.csv",
+    )
+    output_path = os.path.join(
+        os.getcwd(),
+        "myfi_backend/celery/scheme_data_22-May-2024_final.csv",
+    )
+    with open(input_path, "r") as input_file:
+        csvreader = csv.reader(input_file)
+        with open(output_path, "w", newline="") as output_file:
+            csvwriter = csv.writer(output_file)
+            for row in csvreader:
+                scheme_name = row[0]
+                size = len(row)
+                for key, value in Amc_Map.items():
+                    key_len = len(key)
+                    key = key.lower()
+                    trim_scheme = scheme_name[:key_len]
+                    trim_scheme = trim_scheme.lower()
+                    if key == trim_scheme:
+                        row.append(value)
+                        csvwriter.writerow(row)
+
+    Final_map = {}
+    with open(output_path, "r") as input_file:
+        csvreader = csv.reader(input_file)
+        for row in csvreader:
+            size = len(row) - 1
+            scheme_name = row[0]
+            amfi_code = row[1]
+            Final_map[amfi_code] = {
+                "name": row[0],
+                "amfi_scheme_code": row[1],
+                "benchmark": row[4],
+                "plan": row[5],
+                "scheme_category": row[6],
+                "risk": row[9],
+                "aum": row[10],
+                "amc_uuid": row[size],
+            }
 
     async with dbsession.begin():
         # Create a DAO object using the session
         scheme_dao = MutualFundSchemeDAO(dbsession)
-        isin_code = 0
+        isin_code = 10000
         ZERO_FLOAT = 0.0
-        for items in data:
-            amc = await AmcDAO(dbsession).get_by_code(data[items]["amc_code"])
-            if amc is None:
-                continue
-            else:
-                scheme_data = {
-                    "name": data[items]["name"],
-                    "scheme_id": data[items]["scheme_id"],
-                    "amc_id": amc.id,
-                    "scheme_plan": data[items]["scheme_plan"],
-                    "scheme_type": data[items]["scheme_type"],
-                    "scheme_category": data[items]["scheme_category"],
-                    "nav": float(data[items]["nav"])
-                    if data[items]["nav"]
-                    else ZERO_FLOAT,
-                    "isin": str(isin_code),
-                    "cagr": float(data[items]["cagr"])
-                    if data[items]["cagr"]
-                    else ZERO_FLOAT,
-                    "risk_level": data[items]["risk_level"],
-                    "aum": float(data[items]["aum"])
-                    if data[items]["aum"]
-                    else ZERO_FLOAT,
-                    "ter": float(data[items]["ter"])
-                    if data[items]["ter"]
-                    else ZERO_FLOAT,
-                    "rating": 0,
-                    "benchmark_index": "A",
-                    "min_investment_sip": float(data[items]["min_investment_sip"])
-                    if data[items]["min_investment_sip"]
-                    else ZERO_FLOAT,
-                    "min_investment_one_time": 0,
-                    "exit_load": data[items]["exit_load"],
-                    "fund_manager": data[items]["fund_manager"],
-                    "return_since_inception": float(
-                        data[items]["return_since_inception"],
-                    )
-                    if data[items]["return_since_inception"]
-                    else ZERO_FLOAT,
-                    "return_last_year": float(data[items]["return_last_year"])
-                    if data[items]["return_last_year"]
-                    else ZERO_FLOAT,
-                    "return_last3_years": float(data[items]["return_last3_year"])
-                    if data[items]["return_last3_year"]
-                    else ZERO_FLOAT,
-                    "return_last5_years": float(data[items]["return_last5_year"])
-                    if data[items]["return_last5_year"]
-                    else ZERO_FLOAT,
-                    "standard_deviation": float(data[items]["standard_deviation"])
-                    if data[items]["standard_deviation"]
-                    else ZERO_FLOAT,
-                    "sharpe_ratio": float(data[items]["sharpe_ratio"])
-                    if data[items]["sharpe_ratio"]
-                    else ZERO_FLOAT,
-                    "sortino_ratio": float(data[items]["sortino_ratio"])
-                    if data[items]["sortino_ratio"]
-                    else ZERO_FLOAT,
-                    "alpha": float(data[items]["alpha"])
-                    if data[items]["alpha"]
-                    else ZERO_FLOAT,
-                    "beta": float(data[items]["beta"])
-                    if data[items]["beta"]
-                    else ZERO_FLOAT,
-                }
-                # Save the AMC data to the database
-                isin_code += 10
-                await scheme_dao.upsert(scheme_data)
+        for items in Final_map:
+            scheme_data = {
+                "name": str(Final_map[items]["name"]),
+                "scheme_id": int(Final_map[items]["amfi_scheme_code"]),
+                "amc_id": Final_map[items]["amc_uuid"],
+                "scheme_plan": Final_map[items]["plan"],
+                "scheme_type": Final_map[items]["plan"],
+                "scheme_category": Final_map[items]["scheme_category"],
+                "nav": 1.0 * isin_code,
+                "isin": str(isin_code),
+                "cagr": 1.0 * isin_code,
+                "risk_level": Final_map[items]["risk"],
+                "aum": float(Final_map[items]["aum"])
+                if Final_map[items]["aum"]
+                else ZERO_FLOAT,
+                "ter": float(1.0 * isin_code),
+                "rating": 0,
+                "benchmark_index": str(Final_map[items]["benchmark"]),
+                "min_investment_sip": float(1.0 * isin_code),
+                "min_investment_one_time": 0,
+                "exit_load": str(1.0 * isin_code),
+                "fund_manager": str("XYZ"),
+                "return_since_inception": float(1.0 * isin_code),
+                "return_last_year": float(1.0 * isin_code),
+                # if data[items]["return_last_year"]
+                # else ZERO_FLOAT,
+                "return_last3_years": float(1.0 * isin_code),
+                # if data[items]["return_last3_year"]
+                # else ZERO_FLOAT,
+                "return_last5_years": float(1.0 * isin_code),
+                # if data[items]["return_last5_year"]
+                # else ZERO_FLOAT,
+                "standard_deviation": float(1.0 * isin_code),
+                # if data[items]["standard_deviation"]
+                # else ZERO_FLOAT,
+                "sharpe_ratio": float(1.0 * isin_code),
+                # if data[items]["sharpe_ratio"]
+                # else ZERO_FLOAT,
+                "sortino_ratio": float(1.0 * isin_code),
+                # if data[items]["sortino_ratio"]
+                # else ZERO_FLOAT,
+                "alpha": float(1.0 * isin_code),
+                # if data[items]["alpha"]
+                # else ZERO_FLOAT,
+                "beta": float(1.0 * isin_code),
+                # if data[items]["beta"]
+                # else ZERO_FLOAT,
+            }
+            # Save the AMC data to the database
+            isin_code += 10
+            await scheme_dao.upsert(scheme_data)  # type: ignore
 
 
 async def insert_dummy_data(  # noqa: WPS210
