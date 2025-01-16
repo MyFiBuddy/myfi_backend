@@ -1,6 +1,6 @@
 # myfi_backend
-
-Code for API, celery tasks, worker and scheduler, docker local setup, github actions for CI and kubernetes deployment.
+This repo for performing Mutual Fund research, creating and managing portfolio and investing on mutual funds.
+Code for API, celery tasks, workers and scheduler, docker local setup, continuous tests and CI using github actions and kubernetes deployment.
 
 ## Poetry
 
